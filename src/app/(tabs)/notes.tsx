@@ -1,27 +1,32 @@
 import { router } from 'expo-router';
 import type { ReactNode } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { CardGrid } from '@/components/card-grid';
-import { CategoryCard } from '@/components/category-card';
+import { CategoryCard, CategorySelectionBar } from '@/components/category-card';
 import { EmptyState } from '@/components/empty-state';
-import { Icons } from '@/components/icon';
+import { Icon, Icons } from '@/components/icon';
 import { IconButton } from '@/components/icon-button';
 import { NoteCard } from '@/components/note-card';
 import { SelectionBar, useNoteSelection } from '@/components/note-selection';
 import { Screen } from '@/components/screen';
 import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
+import { Radius, Spacing } from '@/constants/theme';
 import { listCategories } from '@/db/categories';
 import { listMainNotes, type Note } from '@/db/notes';
 import { useLiveQuery } from '@/db/use-live-query';
+import { useLayout } from '@/hooks/use-layout';
+import { useTheme } from '@/hooks/use-theme';
 
 /**
- * Pinned notes first (from any folder), then folders, then the notes not in a folder.
+ * Pinned notes first (from any category), then categories, then the notes not in a category.
  * Hold a note to select several and pin, move or delete them together.
  */
 export default function NotesScreen() {
   const selection = useNoteSelection();
+  const categorySelection = useNoteSelection();
+  const { width } = useLayout();
+  const categoryColumns = Math.max(2, Math.min(5, Math.floor(width / 200)));
   const { data } = useLiveQuery(['notes', 'attachments', 'note_categories'], 'main', async (db) => ({
     ...(await listMainNotes(db)),
     categories: await listCategories(db),
@@ -30,7 +35,7 @@ export default function NotesScreen() {
   const pinned = data?.pinned ?? [];
   const loose = data?.loose ?? [];
   const categories = data?.categories ?? [];
-  const folderNames = new Map(categories.map((category) => [category.id, category.name]));
+  const categoryNames = new Map(categories.map((category) => [category.id, category.name]));
   const empty = data && pinned.length + loose.length + categories.length === 0;
 
   const noteGrid = (notes: Note[]) => (
@@ -42,8 +47,11 @@ export default function NotesScreen() {
           note={note}
           selecting={selection.selecting}
           selected={selection.selected.has(note.id)}
-          onToggle={() => selection.toggle(note.id)}
-          folderName={note.categoryId ? folderNames.get(note.categoryId) : undefined}
+          onToggle={() => {
+            categorySelection.clear();
+            selection.toggle(note.id);
+          }}
+          categoryName={note.categoryId ? categoryNames.get(note.categoryId) : undefined}
         />
       )}
     />
@@ -55,11 +63,7 @@ export default function NotesScreen() {
       fullWidth
       action={
         <View style={styles.actions}>
-          <IconButton
-            icon={Icons.newFolder}
-            label="New folder"
-            onPress={() => router.push({ pathname: '/category-editor/[id]', params: { id: 'new' } })}
-          />
+          <NewCategoryButton />
           <IconButton
             icon={Icons.add}
             label="New note"
@@ -69,11 +73,13 @@ export default function NotesScreen() {
         </View>
       }>
       <ScrollView contentContainerStyle={styles.content}>
-        {selection.selecting ? (
+        {categorySelection.selecting ? (
+          <CategorySelectionBar selection={categorySelection} />
+        ) : selection.selecting ? (
           <SelectionBar selection={selection} notes={[...pinned, ...loose]} categories={categories} />
-        ) : pinned.length + loose.length > 1 ? (
+        ) : pinned.length + loose.length > 1 || categories.length > 1 ? (
           <ThemedText type="small" themeColor="textSecondary">
-            Hold a note to select several.
+            Hold a note or category to select several.
           </ThemedText>
         ) : null}
 
@@ -81,17 +87,28 @@ export default function NotesScreen() {
           <EmptyState
             icon={Icons.notes}
             title="No notes yet"
-            message="Tap + to write a note, or the folder button to make a folder."
+            message="Tap + to write a note, or New category to group your notes."
           />
         ) : null}
 
         {pinned.length > 0 ? <Section title="Pinned">{noteGrid(pinned)}</Section> : null}
         {categories.length > 0 ? (
-          <Section title="Folders">
+          <Section title="Categories">
             <CardGrid
               items={categories}
+              columns={categoryColumns}
               keyOf={(category) => category.id}
-              render={(category) => <CategoryCard category={category} />}
+              render={(category) => (
+                <CategoryCard
+                  category={category}
+                  selecting={categorySelection.selecting}
+                  selected={categorySelection.selected.has(category.id)}
+                  onToggle={() => {
+                    selection.clear();
+                    categorySelection.toggle(category.id);
+                  }}
+                />
+              )}
             />
           </Section>
         ) : null}
@@ -102,6 +119,26 @@ export default function NotesScreen() {
         ) : null}
       </ScrollView>
     </Screen>
+  );
+}
+
+/** A clear, labelled button: categories are easy to miss as an icon. */
+function NewCategoryButton() {
+  const theme = useTheme();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={() => router.push({ pathname: '/category-editor/[id]', params: { id: 'new' } })}
+      style={({ pressed }) => [
+        styles.newCategory,
+        { borderColor: theme.accentText },
+        pressed && styles.pressed,
+      ]}>
+      <Icon name={Icons.newCategory} size={20} color="accentText" />
+      <ThemedText type="smallBold" themeColor="accentText">
+        New category
+      </ThemedText>
+    </Pressable>
   );
 }
 
@@ -117,6 +154,20 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 const styles = StyleSheet.create({
   actions: {
     flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
+  newCategory: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.one,
+    minHeight: 44,
+    borderWidth: 1.5,
+    borderRadius: Radius.pill,
+    paddingHorizontal: Spacing.three,
+  },
+  pressed: {
+    opacity: 0.7,
   },
   content: {
     paddingHorizontal: Spacing.three,

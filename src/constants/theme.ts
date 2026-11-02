@@ -7,6 +7,8 @@ import '@/global.css';
 
 import { Platform, type TextStyle } from 'react-native';
 
+import { BRAND_FONTS, type FontFamilies, type FontRole, type FontWeight } from './fonts';
+
 export type ThemeName = 'light' | 'dark' | 'custom';
 
 export type ColorTokens = {
@@ -33,10 +35,7 @@ export type ColorTokens = {
 
 export type ThemeColor = keyof ColorTokens;
 
-export type FontRole = 'display' | 'body' | 'mono';
-export type FontWeight = 400 | 500 | 600 | 700;
-
-type FontFamilies = Record<FontRole, Record<FontWeight, string>>;
+export type { FontRole, FontWeight } from './fonts';
 
 export type Theme = {
   name: ThemeName;
@@ -84,31 +83,15 @@ const DARK: ColorTokens = {
 export const LIGHT_COLORS = LIGHT;
 export const DARK_COLORS = DARK;
 
-const BRAND_FONTS: FontFamilies = {
-  display: {
-    400: 'ChakraPetch_500Medium',
-    500: 'ChakraPetch_500Medium',
-    600: 'ChakraPetch_600SemiBold',
-    700: 'ChakraPetch_700Bold',
-  },
-  body: {
-    400: 'IBMPlexSans_400Regular',
-    500: 'IBMPlexSans_500Medium',
-    600: 'IBMPlexSans_600SemiBold',
-    700: 'IBMPlexSans_700Bold',
-  },
-  mono: {
-    400: 'IBMPlexMono_400Regular',
-    500: 'IBMPlexMono_500Medium',
-    600: 'IBMPlexMono_500Medium',
-    700: 'IBMPlexMono_500Medium',
-  },
-};
-
 export const Themes: Record<'light' | 'dark', Theme> = {
   light: { name: 'light', label: 'Light', dark: false, colors: LIGHT, fonts: BRAND_FONTS },
   dark: { name: 'dark', label: 'Dark', dark: true, colors: DARK, fonts: BRAND_FONTS },
 };
+
+/** `theme` with another font set (null: the phone's font). */
+export function withFonts(theme: Theme, fonts: FontFamilies | null): Theme {
+  return theme.fonts === fonts ? theme : { ...theme, fonts };
+}
 
 /** A theme from user-chosen colours (see lib/custom-theme for how the rest are derived). */
 export function makeTheme(colors: ColorTokens, dark: boolean): Theme {

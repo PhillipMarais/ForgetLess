@@ -1,6 +1,7 @@
 import type { ChangeEvent } from 'react';
 
 import type { DateTimeFieldProps } from '@/components/date-time-field-shared';
+import { TimePickerField } from '@/components/time-picker';
 import { fontStyle, Radius, Spacing } from '@/constants/theme';
 import { useAppTheme } from '@/hooks/use-theme';
 
@@ -14,7 +15,13 @@ function toInputValue(mode: DateTimeFieldProps['mode'], value: number) {
 }
 
 /** The browser's own date/time input, so the web preview has a real picker. */
-export function DateTimeField({ mode, value, onChange, label }: DateTimeFieldProps) {
+export function DateTimeField(props: DateTimeFieldProps) {
+  // Times use Forgetless's own wheel picker on every platform.
+  if (props.mode === 'time') return <TimePickerField {...props} />;
+  return <DateField {...props} />;
+}
+
+function DateField({ mode, value, onChange, label }: DateTimeFieldProps) {
   const theme = useAppTheme();
   const { colors } = theme;
   const font = fontStyle(theme, 'body', 400);

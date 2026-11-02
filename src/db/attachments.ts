@@ -3,8 +3,21 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 import { notifyChange } from './changes';
 import { newId, now } from './ids';
 
-/** Pictures attached to a task, event or note. The file itself lives at `uri`. */
+/**
+ * Files attached to a task, event or note: pictures, and PDF documents (notes only).
+ * The file itself lives at `uri`.
+ */
 export type OwnerType = 'event' | 'task' | 'note';
+
+export const PDF_MIME = 'application/pdf';
+
+/** Pictures and documents are listed, counted and ordered separately. */
+export type AttachmentKind = 'pictures' | 'documents';
+
+const KIND_SQL: Record<AttachmentKind, string> = {
+  pictures: `(mime_type IS NULL OR mime_type != '${PDF_MIME}')`,
+  documents: `mime_type = '${PDF_MIME}'`,
+};
 
 export type Attachment = {
   id: string;
@@ -15,13 +28,16 @@ export type Attachment = {
   width: number | null;
   height: number | null;
   byteSize: number | null;
+  /** The original file name, for documents. */
+  fileName: string | null;
   /** Position among the owner's pictures; the lowest is the cover. */
   sortOrder: number;
   createdAt: number;
 };
 
-export type NewAttachment = Omit<Attachment, 'id' | 'createdAt' | 'sortOrder'> & {
+export type NewAttachment = Omit<Attachment, 'id' | 'createdAt' | 'sortOrder' | 'fileName'> & {
   id?: string;
+  fileName?: string | null;
   /** Defaults to after the owner's existing pictures. */
   sortOrder?: number;
 };
@@ -35,6 +51,7 @@ type AttachmentRow = {
   width: number | null;
   height: number | null;
   byte_size: number | null;
+  file_name: string | null;
   sort_order: number;
   created_at: number;
 };
@@ -49,6 +66,7 @@ function toAttachment(row: AttachmentRow): Attachment {
     width: row.width,
     height: row.height,
     byteSize: row.byte_size,
+    fileName: row.file_name,
     sortOrder: row.sort_order,
     createdAt: row.created_at,
   };
@@ -57,26 +75,30 @@ function toAttachment(row: AttachmentRow): Attachment {
 const PICTURE_ORDER = 'sort_order ASC, created_at ASC, id ASC';
 
 /**
- * SQL for `attachment_count` and `cover_uri` columns on a list query, e.g.
- * `SELECT tasks.*, ${attachmentColumns('task', 'tasks')} FROM tasks`.
+ * SQL for `attachment_count` (pictures), `cover_uri` and `document_count` columns on a list
+ * query, e.g. `SELECT tasks.*, ${attachmentColumns('task', 'tasks')} FROM tasks`.
  * Both arguments are fixed strings from our own code, never user input.
  */
 export function attachmentColumns(ownerType: OwnerType, table: string) {
   const ofOwner = `a.owner_type = '${ownerType}' AND a.owner_id = ${table}.id AND a.deleted_at IS NULL`;
-  return `(SELECT COUNT(*) FROM attachments a WHERE ${ofOwner}) AS attachment_count,
-          (SELECT a.uri FROM attachments a WHERE ${ofOwner} ORDER BY ${PICTURE_ORDER} LIMIT 1)
-          AS cover_uri`;
+  const pictures = `${ofOwner} AND (a.mime_type IS NULL OR a.mime_type != '${PDF_MIME}')`;
+  return `(SELECT COUNT(*) FROM attachments a WHERE ${pictures}) AS attachment_count,
+          (SELECT a.uri FROM attachments a WHERE ${pictures} ORDER BY ${PICTURE_ORDER} LIMIT 1)
+          AS cover_uri,
+          (SELECT COUNT(*) FROM attachments a WHERE ${ofOwner} AND a.mime_type = '${PDF_MIME}')
+          AS document_count`;
 }
 
-/** In display order; the first is the cover. */
+/** The owner's pictures (the first is the cover) or documents, in display order. */
 export async function listAttachments(
   db: SQLiteDatabase,
   ownerType: OwnerType,
   ownerId: string,
+  kind: AttachmentKind = 'pictures',
 ): Promise<Attachment[]> {
   const rows = await db.getAllAsync<AttachmentRow>(
     `SELECT * FROM attachments
-     WHERE owner_type = ? AND owner_id = ? AND deleted_at IS NULL
+     WHERE owner_type = ? AND owner_id = ? AND deleted_at IS NULL AND ${KIND_SQL[kind]}
      ORDER BY ${PICTURE_ORDER}`,
     ownerType,
     ownerId,
@@ -89,9 +111,9 @@ export async function addAttachment(db: SQLiteDatabase, input: NewAttachment): P
   const timestamp = now();
   await db.runAsync(
     `INSERT INTO attachments
-       (id, owner_type, owner_id, uri, mime_type, width, height, byte_size, sort_order,
+       (id, owner_type, owner_id, uri, mime_type, width, height, byte_size, file_name, sort_order,
         created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?,
        COALESCE(?, (SELECT MAX(sort_order) + 1 FROM attachments
                     WHERE owner_type = ? AND owner_id = ? AND deleted_at IS NULL), 0),
        ?, ?)`,
@@ -103,6 +125,7 @@ export async function addAttachment(db: SQLiteDatabase, input: NewAttachment): P
     input.width,
     input.height,
     input.byteSize,
+    input.fileName ?? null,
     input.sortOrder ?? null,
     input.ownerType,
     input.ownerId,

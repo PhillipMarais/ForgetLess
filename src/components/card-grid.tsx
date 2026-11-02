@@ -8,12 +8,14 @@ type CardGridProps<T> = {
   items: readonly T[];
   keyOf: (item: T) => string;
   render: (item: T) => ReactNode;
+  /** Fixed number of columns; by default 1, 2 or 3 depending on the window width. */
+  columns?: number;
 };
 
 /** Cards in 1, 2 or 3 columns depending on the window width; the last row keeps card widths. */
-export function CardGrid<T>({ items, keyOf, render }: CardGridProps<T>) {
+export function CardGrid<T>({ items, keyOf, render, columns: fixed }: CardGridProps<T>) {
   const { width, wide } = useLayout();
-  const columns = width >= 1100 ? 3 : wide ? 2 : 1;
+  const columns = fixed ?? (width >= 1100 ? 3 : wide ? 2 : 1);
   const rows: T[][] = [];
   for (let index = 0; index < items.length; index += columns) {
     rows.push(items.slice(index, index + columns));

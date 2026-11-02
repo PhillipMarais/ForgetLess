@@ -1,15 +1,3 @@
-import {
-  ChakraPetch_500Medium,
-  ChakraPetch_600SemiBold,
-  ChakraPetch_700Bold,
-} from '@expo-google-fonts/chakra-petch';
-import { IBMPlexMono_400Regular, IBMPlexMono_500Medium } from '@expo-google-fonts/ibm-plex-mono';
-import {
-  IBMPlexSans_400Regular,
-  IBMPlexSans_500Medium,
-  IBMPlexSans_600SemiBold,
-  IBMPlexSans_700Bold,
-} from '@expo-google-fonts/ibm-plex-sans';
 import { useFonts } from 'expo-font';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
@@ -19,6 +7,7 @@ import { StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 
+import { BRAND_FILES } from '@/constants/fonts';
 import { fontStyle } from '@/constants/theme';
 import { DatabaseProvider } from '@/db/database-provider';
 import { SettingsProvider } from '@/hooks/use-settings';
@@ -28,17 +17,7 @@ import { AppThemeProvider, useAppTheme } from '@/hooks/use-theme';
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
-  const [fontsLoaded, fontError] = useFonts({
-    ChakraPetch_500Medium,
-    ChakraPetch_600SemiBold,
-    ChakraPetch_700Bold,
-    IBMPlexSans_400Regular,
-    IBMPlexSans_500Medium,
-    IBMPlexSans_600SemiBold,
-    IBMPlexSans_700Bold,
-    IBMPlexMono_400Regular,
-    IBMPlexMono_500Medium,
-  });
+  const [fontsLoaded, fontError] = useFonts(BRAND_FILES);
   // A font that fails to load falls back to the system font rather than blocking the app.
   if (!fontsLoaded && !fontError) return null;
 
@@ -99,8 +78,8 @@ function ThemedNavigation() {
         <Stack.Screen name="task/[id]" options={{ title: 'Task' }} />
         <Stack.Screen name="settings" options={{ title: 'Settings' }} />
         <Stack.Screen name="custom-theme" options={{ title: 'Custom theme' }} />
-        <Stack.Screen name="category/[id]" options={{ title: 'Folder' }} />
-        <Stack.Screen name="category-editor/[id]" options={{ title: 'Folder' }} />
+        <Stack.Screen name="category/[id]" options={{ title: 'Category' }} />
+        <Stack.Screen name="category-editor/[id]" options={{ title: 'Category' }} />
       </Stack>
     </ThemeProvider>
   );

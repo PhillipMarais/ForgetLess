@@ -3,14 +3,14 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 import { notifyChange } from './changes';
 import { newId, now } from './ids';
 
-/** A folder of notes, shown in the notes list with an optional icon picture. */
+/** A category of notes, shown in the notes list with an optional icon picture. */
 export type Category = {
   id: string;
   name: string;
-  /** Icon picture file (or data: URI on web); null shows a folder symbol. */
+  /** Icon picture file (or data: URI on web); null shows a category symbol. */
   iconUri: string | null;
   sortOrder: number;
-  /** Notes currently in the folder. */
+  /** Notes currently in the category. */
   noteCount: number;
   createdAt: number;
   updatedAt: number;
@@ -88,21 +88,28 @@ export async function updateCategory(db: SQLiteDatabase, id: string, input: Cate
   notifyChange('note_categories');
 }
 
-/** Deletes a folder. Its notes are kept and move back to the main notes list. */
-export async function deleteCategory(db: SQLiteDatabase, id: string) {
+/** Deletes a category. Its notes are kept and move back to the main notes list. */
+export function deleteCategory(db: SQLiteDatabase, id: string) {
+  return deleteCategories(db, [id]);
+}
+
+/** Deletes several categories at once (multi-select); their notes are kept. */
+export async function deleteCategories(db: SQLiteDatabase, ids: readonly string[]) {
   const timestamp = now();
   await db.withTransactionAsync(async () => {
-    await db.runAsync(
-      'UPDATE note_categories SET deleted_at = ?, updated_at = ? WHERE id = ?',
-      timestamp,
-      timestamp,
-      id,
-    );
-    await db.runAsync(
-      'UPDATE notes SET category_id = NULL, updated_at = ? WHERE category_id = ?',
-      timestamp,
-      id,
-    );
+    for (const id of ids) {
+      await db.runAsync(
+        'UPDATE note_categories SET deleted_at = ?, updated_at = ? WHERE id = ?',
+        timestamp,
+        timestamp,
+        id,
+      );
+      await db.runAsync(
+        'UPDATE notes SET category_id = NULL, updated_at = ? WHERE category_id = ?',
+        timestamp,
+        id,
+      );
+    }
   });
   notifyChange('note_categories');
   notifyChange('notes');

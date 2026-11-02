@@ -1,8 +1,12 @@
 import {
   buildRRule,
   describeRepeat,
+  firstOccurrenceFrom,
   nextOccurrenceAfter,
   occurrencesBetween,
+  occurrencesLimited,
+  ordinal,
+  repeatDetailsOf,
   repeatFrequencyOf,
   shiftWallClock,
 } from './recurrence';
@@ -83,5 +87,47 @@ describe('nextOccurrenceAfter', () => {
   it('returns null when the series has ended', () => {
     const start = at(2026, 11, 2, 9);
     expect(nextOccurrenceAfter('FREQ=DAILY;COUNT=2', start, at(2026, 11, 3, 9))).toBeNull();
+  });
+});
+
+describe('weekday and month-day repeats', () => {
+  it('builds and reads back chosen weekdays and days of the month', () => {
+    const weekly = buildRRule('weekly', { weekdays: [4, 0, 2] });
+    expect(weekly).toBe('FREQ=WEEKLY;BYDAY=MO,WE,FR');
+    expect(repeatDetailsOf(weekly).weekdays).toEqual([0, 2, 4]);
+    expect(repeatFrequencyOf(weekly)).toBe('weekly');
+
+    const monthly = buildRRule('monthly', { monthDay: 15 });
+    expect(monthly).toBe('FREQ=MONTHLY;BYMONTHDAY=15');
+    expect(repeatDetailsOf(monthly).monthDay).toBe(15);
+  });
+
+  it('ignores details that do not fit the frequency', () => {
+    expect(buildRRule('daily', { weekdays: [1], monthDay: 3 })).toBe('FREQ=DAILY');
+  });
+
+  it('describes them in words', () => {
+    expect(describeRepeat('FREQ=WEEKLY;BYDAY=MO,WE')).toBe('Every Mon, Wed');
+    expect(describeRepeat('FREQ=MONTHLY;BYMONTHDAY=22')).toBe('Every month on the 22nd');
+    expect([1, 2, 3, 4, 11, 12, 13, 21, 31].map(ordinal)).toEqual([
+      '1st', '2nd', '3rd', '4th', '11th', '12th', '13th', '21st', '31st',
+    ]);
+  });
+
+  it('only lands on the chosen weekdays', () => {
+    const start = at(2026, 11, 2, 8); // Monday
+    const result = occurrencesBetween('FREQ=WEEKLY;BYDAY=TU,TH', start, start, at(2026, 11, 13));
+    expect(result).toEqual([at(2026, 11, 3, 8), at(2026, 11, 5, 8), at(2026, 11, 10, 8), at(2026, 11, 12, 8)]);
+  });
+
+  it('finds the first date from a time, and caps how many it lists', () => {
+    const start = at(2026, 11, 2, 8);
+    expect(firstOccurrenceFrom('FREQ=DAILY', start, start)).toBe(start);
+    expect(firstOccurrenceFrom('FREQ=DAILY', start, start + 1)).toBe(at(2026, 11, 3, 8));
+    expect(occurrencesLimited('FREQ=DAILY', start, start, at(2027, 1, 1), 3)).toEqual([
+      at(2026, 11, 2, 8),
+      at(2026, 11, 3, 8),
+      at(2026, 11, 4, 8),
+    ]);
   });
 });

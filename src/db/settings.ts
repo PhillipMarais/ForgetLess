@@ -1,5 +1,6 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
+import { FONT_SET_IDS, type FontSetId } from '@/constants/fonts';
 import { DEFAULT_CUSTOM_COLORS, sanitizeCustomColors, type CustomColors } from '@/lib/custom-theme';
 
 import { now } from './ids';
@@ -16,7 +17,17 @@ export const DEFAULT_SETTINGS = {
   calendarView: 'month' as CalendarView,
   /** Colours for the Custom theme. */
   customColors: DEFAULT_CUSTOM_COLORS as CustomColors,
+  /** Fonts for every theme; see FONT_SETS in constants/fonts. */
+  fontSet: 'brand' as FontSetId,
+  /** One of the phone's alarm sounds; null is the phone's default alarm sound. */
+  alarmSoundUri: null as string | null,
+  /** Shown in settings, so the list of sounds needn't be loaded to name the choice. */
+  alarmSoundName: 'Phone default',
+  alarmVibrate: true,
+  alarmSnoozeMinutes: 10,
 };
+
+export const SNOOZE_CHOICES = [5, 10, 15, 30] as const;
 
 export type ThemeSetting = 'system' | 'light' | 'dark' | 'custom';
 export type CalendarView = 'day' | 'week' | 'month';
@@ -35,6 +46,11 @@ function normalize(key: SettingKey, value: unknown): unknown {
   }
   if (key === 'calendarView') return CALENDAR_VIEWS.includes(value as string) ? value : undefined;
   if (key === 'customColors') return value && typeof value === 'object' ? sanitizeCustomColors(value) : undefined;
+  if (key === 'fontSet') return FONT_SET_IDS.includes(value as FontSetId) ? value : undefined;
+  if (key === 'alarmSoundUri') return value === null || typeof value === 'string' ? value : undefined;
+  if (key === 'alarmSnoozeMinutes') {
+    return (SNOOZE_CHOICES as readonly unknown[]).includes(value) ? value : undefined;
+  }
   return typeof value === typeof DEFAULT_SETTINGS[key] ? value : undefined;
 }
 

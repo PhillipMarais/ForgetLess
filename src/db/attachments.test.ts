@@ -6,6 +6,7 @@ import {
   deleteAttachment,
   listAttachments,
   listDeletedAttachmentUris,
+  PDF_MIME,
   setAttachmentOrder,
   type NewAttachment,
 } from './attachments';
@@ -150,4 +151,26 @@ it('forgets the files of deleted pictures once cleared, but keeps the rows', asy
   expect(await listDeletedAttachmentUris(db)).toEqual([]);
   const row = await db.getFirstAsync<{ uri: string }>('SELECT uri FROM attachments WHERE id = ?', id);
   expect(row?.uri).toBe('');
+});
+
+it('keeps PDFs apart from pictures: not a cover, not in the picture count', async () => {
+  const noteId = await createNote(db, { title: 'Manual', body: '' });
+  await addAttachment(db, {
+    ownerType: 'note',
+    ownerId: noteId,
+    uri: 'file:///attachments/manual.pdf',
+    mimeType: PDF_MIME,
+    width: null,
+    height: null,
+    byteSize: 90_000,
+    fileName: 'Manual.pdf',
+  });
+  await addAttachment(db, picture('note', noteId, 'photo'));
+
+  const note = await getNote(db, noteId);
+  expect(note).toMatchObject({ attachmentCount: 1, documentCount: 1, coverUri: 'file:///attachments/photo.jpg' });
+  expect((await listAttachments(db, 'note', noteId)).map((a) => a.uri)).toEqual(['file:///attachments/photo.jpg']);
+  expect(await listAttachments(db, 'note', noteId, 'documents')).toEqual([
+    expect.objectContaining({ fileName: 'Manual.pdf', mimeType: PDF_MIME }),
+  ]);
 });

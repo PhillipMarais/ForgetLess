@@ -3,6 +3,7 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet } from 'react-native';
 
+import { AlarmField } from '@/components/alarm-field';
 import { ChipGroup } from '@/components/chip';
 import { ChoiceDialog, type Choice } from '@/components/choice-dialog';
 import { DateTimeField } from '@/components/date-time-field';
@@ -27,6 +28,7 @@ import {
   type EventOccurrence,
 } from '@/db/events';
 import { listAttachments, type Attachment } from '@/db/attachments';
+import { getAlarmOffset, setAlarmOffset } from '@/db/reminders';
 import { useDraftPhotos } from '@/hooks/use-draft-photos';
 import { addDays, nextHour, startOfDay } from '@/lib/dates';
 import {
@@ -50,9 +52,16 @@ type Draft = {
   startAt: number;
   endAt: number;
   repeat: RepeatFrequency | null;
+  /** Minutes before the start; null for no alarm. All-day events have none. */
+  alarm: number | null;
 };
 
-type Existing = { event: CalendarEvent; occurrence: EventOccurrence; attachments: Attachment[] };
+type Existing = {
+  event: CalendarEvent;
+  occurrence: EventOccurrence;
+  attachments: Attachment[];
+  alarm: number | null;
+};
 
 type Scope = 'one' | 'all';
 
@@ -69,10 +78,10 @@ function newDraft(day: number | undefined, start: number | undefined): Draft {
   const today = startOfDay();
   const startAt =
     start !== undefined ? start : day === undefined || day === today ? nextHour() : at9(day);
-  return { title: '', notes: '', allDay: false, startAt, endAt: startAt + HOUR, repeat: null };
+  return { title: '', notes: '', allDay: false, startAt, endAt: startAt + HOUR, repeat: null, alarm: null };
 }
 
-function draftFrom({ event, occurrence }: Existing): Draft {
+function draftFrom({ event, occurrence, alarm }: Existing): Draft {
   return {
     title: occurrence.title,
     notes: occurrence.notes ?? '',
@@ -80,6 +89,7 @@ function draftFrom({ event, occurrence }: Existing): Draft {
     startAt: occurrence.startAt,
     endAt: occurrence.allDay ? addDays(occurrence.endAt, -1) : occurrence.endAt,
     repeat: repeatFrequencyOf(event.rrule),
+    alarm,
   };
 }
 
@@ -114,7 +124,8 @@ export default function EventScreen() {
         ? await getOccurrence(db, event.id, Number(params.occurrence ?? event.startAt))
         : null;
       const attachments = event ? await listAttachments(db, 'event', event.id) : [];
-      if (active) setExisting(event && occurrence ? { event, occurrence, attachments } : null);
+      const alarm = event ? await getAlarmOffset(db, 'event', event.id) : null;
+      if (active) setExisting(event && occurrence ? { event, occurrence, attachments, alarm } : null);
     })();
     return () => {
       active = false;
@@ -167,8 +178,9 @@ function EventEditor({ initial, existing }: { initial: Draft; existing?: Existin
     setSaving(true);
     const input = toInput(draft);
     const eventId = existing ? await saveExisting(existing, input, scope) : await createEvent(db, input);
-    // Pictures belong to the whole event, whichever scope was chosen.
+    // Pictures and the alarm belong to the whole event, whichever scope was chosen.
     await photos.save(db, 'event', eventId);
+    await setAlarmOffset(db, 'event', eventId, draft.allDay ? null : draft.alarm);
     leaveEditor('/calendar');
   };
 
@@ -266,6 +278,9 @@ function EventEditor({ initial, existing }: { initial: Draft; existing?: Existin
             />
           ) : null}
         </FormRow>
+        {!draft.allDay ? (
+          <AlarmField value={draft.alarm} onChange={(alarm) => update({ alarm })} />
+        ) : null}
         {draft.endAt < draft.startAt ? (
           <ThemedText type="small" themeColor="danger">
             The end is before the start.

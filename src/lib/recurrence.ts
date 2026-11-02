@@ -36,8 +36,29 @@ export const REPEAT_OPTIONS: readonly { label: string; value: RepeatFrequency | 
   { label: 'Yearly', value: 'yearly' },
 ];
 
-export function buildRRule(frequency: RepeatFrequency | null): string | null {
-  return frequency ? `FREQ=${FREQUENCY_TO_RRULE[frequency]}` : null;
+/** Weekdays as numbers, Monday first: 0 = Monday … 6 = Sunday (RRULE's own order). */
+export const WEEKDAY_CODES = ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU'] as const;
+
+/** Extra detail for a repeat: which weekdays (weekly), which day of the month (monthly). */
+export type RepeatDetails = {
+  /** 0 = Monday … 6 = Sunday. Empty or missing: the start date's weekday. */
+  weekdays?: readonly number[];
+  /** 1–31. Missing: the start date's day. Months without that day are skipped. */
+  monthDay?: number;
+};
+
+export function buildRRule(
+  frequency: RepeatFrequency | null,
+  details: RepeatDetails = {},
+): string | null {
+  if (!frequency) return null;
+  let rule = `FREQ=${FREQUENCY_TO_RRULE[frequency]}`;
+  if (frequency === 'weekly' && details.weekdays?.length) {
+    const days = [...new Set(details.weekdays)].sort((a, b) => a - b);
+    rule += `;BYDAY=${days.map((day) => WEEKDAY_CODES[day]).join(',')}`;
+  }
+  if (frequency === 'monthly' && details.monthDay) rule += `;BYMONTHDAY=${details.monthDay}`;
+  return rule;
 }
 
 export function repeatFrequencyOf(rrule: string | null): RepeatFrequency | null {
@@ -45,9 +66,41 @@ export function repeatFrequencyOf(rrule: string | null): RepeatFrequency | null 
   return REPEAT_FREQUENCIES.find((frequency) => FREQUENCY_TO_RRULE[frequency] === freq) ?? null;
 }
 
+export function repeatDetailsOf(rrule: string | null): RepeatDetails {
+  const byDay = rrule?.match(/BYDAY=([A-Z,]+)/)?.[1];
+  const byMonthDay = rrule?.match(/BYMONTHDAY=(\d+)/)?.[1];
+  return {
+    weekdays: byDay
+      ? byDay.split(',').map((code) => WEEKDAY_CODES.indexOf(code as (typeof WEEKDAY_CODES)[number]))
+      : undefined,
+    monthDay: byMonthDay ? Number(byMonthDay) : undefined,
+  };
+}
+
+/** 1 → "1st", 22 → "22nd". */
+export function ordinal(day: number) {
+  const tens = day % 100;
+  const suffix =
+    tens >= 11 && tens <= 13 ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' } as Record<number, string>)[day % 10] ?? 'th';
+  return `${day}${suffix}`;
+}
+
+/** Short weekday name for 0 = Monday … 6 = Sunday, in the phone's language. */
+export function weekdayName(day: number, style: 'short' | 'long' = 'short') {
+  // 5 Jan 2026 is a Monday.
+  return new Date(2026, 0, 5 + day).toLocaleDateString(undefined, { weekday: style });
+}
+
 export function describeRepeat(rrule: string | null) {
   const frequency = repeatFrequencyOf(rrule);
-  return frequency ? REPEAT_LABELS[frequency] : 'Does not repeat';
+  if (!frequency) return 'Does not repeat';
+  const { weekdays, monthDay } = repeatDetailsOf(rrule);
+  if (frequency === 'weekly' && weekdays?.length) {
+    if (weekdays.length === 7) return 'Every day';
+    return `Every ${weekdays.map((day) => weekdayName(day)).join(', ')}`;
+  }
+  if (frequency === 'monthly' && monthDay) return `Every month on the ${ordinal(monthDay)}`;
+  return REPEAT_LABELS[frequency];
 }
 
 function toFloating(time: number) {
@@ -103,4 +156,26 @@ export function shiftWallClock(time: number, from: number, to: number) {
 export function nextOccurrenceAfter(rrule: string, start: number, after: number) {
   const next = ruleFor(rrule, start).after(toFloating(after), false);
   return next ? fromFloating(next) : null;
+}
+
+/** The first occurrence at or after `from`, or null if the series has ended. */
+export function firstOccurrenceFrom(rrule: string, start: number, from: number) {
+  return nextOccurrenceAfter(rrule, start, from - 1);
+}
+
+/** Up to `limit` occurrence starts with `from <= start < to`. */
+export function occurrencesLimited(
+  rrule: string,
+  start: number,
+  from: number,
+  to: number,
+  limit: number,
+) {
+  const result: number[] = [];
+  let next = firstOccurrenceFrom(rrule, start, from);
+  while (next !== null && next < to && result.length < limit) {
+    result.push(next);
+    next = nextOccurrenceAfter(rrule, start, next);
+  }
+  return result;
 }

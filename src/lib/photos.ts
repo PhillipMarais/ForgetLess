@@ -102,7 +102,7 @@ export async function purgeDeletedPhotos(db: SQLiteDatabase) {
   await clearDeletedAttachmentUris(db, uris);
 }
 
-/** Stores a picked picture as a small folder icon and returns its URI. */
+/** Stores a picked picture as a small category icon and returns its URI. */
 export async function storeIcon(image: PickedImage): Promise<string> {
   const prepared = await preparePhoto(image, { maxEdge: ICON_EDGE });
   return storePhoto(prepared, `icon-${newId()}`);

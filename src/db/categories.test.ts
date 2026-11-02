@@ -1,6 +1,13 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
-import { createCategory, deleteCategory, getCategory, listCategories, updateCategory } from './categories';
+import {
+  createCategory,
+  deleteCategories,
+  deleteCategory,
+  getCategory,
+  listCategories,
+  updateCategory,
+} from './categories';
 import {
   createNote,
   getNote,
@@ -17,7 +24,7 @@ beforeEach(async () => {
   db = await createMigratedTestDatabase();
 });
 
-it('creates, renames and lists folders alphabetically with their note counts', async () => {
+it('creates, renames and lists categories alphabetically with their note counts', async () => {
   const work = await createCategory(db, { name: ' Work ', iconUri: null });
   const home = await createCategory(db, { name: 'home', iconUri: 'file:///icon.jpg' });
   await createNote(db, { title: 'A', body: '', categoryId: work });
@@ -32,7 +39,7 @@ it('creates, renames and lists folders alphabetically with their note counts', a
   expect(await getCategory(db, home)).toMatchObject({ name: 'Home', iconUri: null });
 });
 
-it('splits the main list into pinned notes, and loose notes not in a folder', async () => {
+it('splits the main list into pinned notes, and loose notes not in a category', async () => {
   const work = await createCategory(db, { name: 'Work', iconUri: null });
   await createNote(db, { title: 'Loose', body: '' });
   await createNote(db, { title: 'Filed', body: '', categoryId: work });
@@ -48,7 +55,7 @@ it('splits the main list into pinned notes, and loose notes not in a folder', as
   ]);
 });
 
-it('moves notes in and out of folders, alone or several at once', async () => {
+it('moves notes in and out of categories, alone or several at once', async () => {
   const work = await createCategory(db, { name: 'Work', iconUri: null });
   const a = await createNote(db, { title: 'A', body: '' });
   const b = await createNote(db, { title: 'B', body: '' });
@@ -59,17 +66,29 @@ it('moves notes in and out of folders, alone or several at once', async () => {
   await updateNote(db, a, { title: 'A', body: '', categoryId: null });
   expect((await getNote(db, a))?.categoryId).toBeNull();
 
-  // Leaving categoryId out of an update keeps the folder.
+  // Leaving categoryId out of an update keeps the category.
   await updateNote(db, b, { title: 'B2', body: '' });
   expect((await getNote(db, b))?.categoryId).toBe(work);
 });
 
-it('deleting a folder keeps its notes and moves them back to the main list', async () => {
+it('deleting a category keeps its notes and moves them back to the main list', async () => {
   const work = await createCategory(db, { name: 'Work', iconUri: null });
   await createNote(db, { title: 'Filed', body: '', categoryId: work });
 
   await deleteCategory(db, work);
 
   expect(await listCategories(db)).toEqual([]);
+  expect((await listMainNotes(db)).loose.map((n) => n.title)).toEqual(['Filed']);
+});
+
+it('deletes several categories at once and keeps their notes', async () => {
+  const work = await createCategory(db, { name: 'Work', iconUri: null });
+  const home = await createCategory(db, { name: 'Home', iconUri: null });
+  const keep = await createCategory(db, { name: 'Keep', iconUri: null });
+  await createNote(db, { title: 'Filed', body: '', categoryId: work });
+
+  await deleteCategories(db, [work, home]);
+
+  expect((await listCategories(db)).map((c) => c.id)).toEqual([keep]);
   expect((await listMainNotes(db)).loose.map((n) => n.title)).toEqual(['Filed']);
 });

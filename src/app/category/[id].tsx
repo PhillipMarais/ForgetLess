@@ -15,7 +15,7 @@ import { getCategory, listCategories } from '@/db/categories';
 import { listNotesInCategory } from '@/db/notes';
 import { useLiveQuery } from '@/db/use-live-query';
 
-/** One folder's notes, pinned first. */
+/** One category's notes, pinned first. */
 export default function CategoryScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const selection = useNoteSelection();
@@ -29,8 +29,8 @@ export default function CategoryScreen() {
   if (!data.category) {
     return (
       <ThemedView style={styles.fill}>
-        <Stack.Screen options={{ title: 'Folder' }} />
-        <EmptyState icon={Icons.folder} title="Folder not found" message="It may have been deleted." />
+        <Stack.Screen options={{ title: 'Category' }} />
+        <EmptyState icon={Icons.category} title="Category not found" message="It may have been deleted." />
       </ThemedView>
     );
   }
@@ -45,14 +45,14 @@ export default function CategoryScreen() {
             <View style={styles.headerActions}>
               <IconButton
                 icon={Icons.edit}
-                label="Edit folder"
+                label="Edit category"
                 onPress={() =>
                   router.push({ pathname: '/category-editor/[id]', params: { id: category.id } })
                 }
               />
               <IconButton
                 icon={Icons.add}
-                label="New note in this folder"
+                label="New note in this category"
                 variant="filled"
                 onPress={() =>
                   router.push({ pathname: '/note/[id]', params: { id: 'new', category: category.id } })
@@ -80,7 +80,7 @@ export default function CategoryScreen() {
         {notes.length === 0 ? (
           <EmptyState
             icon={Icons.notes}
-            title="This folder is empty"
+            title="This category is empty"
             message="Tap + to write a note here, or move notes in from the notes list."
           />
         ) : (

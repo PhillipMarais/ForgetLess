@@ -9,11 +9,13 @@ export type Note = {
   title: string;
   body: string;
   pinned: boolean;
-  /** The folder it is in, or null for the main notes list. */
+  /** The category it is in, or null for the main notes list. */
   categoryId: string | null;
   attachmentCount: number;
   /** The first picture, shown on list rows; null when there are none. */
   coverUri: string | null;
+  /** Attached PDFs. */
+  documentCount: number;
   createdAt: number;
   updatedAt: number;
 };
@@ -26,6 +28,7 @@ type NoteRow = {
   category_id: string | null;
   attachment_count: number;
   cover_uri: string | null;
+  document_count: number;
   created_at: number;
   updated_at: number;
 };
@@ -42,6 +45,7 @@ function toNote(row: NoteRow): Note {
     categoryId: row.category_id,
     attachmentCount: row.attachment_count,
     coverUri: row.cover_uri,
+    documentCount: row.document_count,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -54,8 +58,8 @@ export async function listNotes(db: SQLiteDatabase): Promise<Note[]> {
 }
 
 /**
- * The main notes list: pinned notes from every folder, then the unpinned notes that are not
- * in a folder. Folders sit between the two (see listCategories).
+ * The main notes list: pinned notes from every category, then the unpinned notes that are not
+ * in a category. Categories sit between the two (see listCategories).
  */
 export async function listMainNotes(db: SQLiteDatabase): Promise<{ pinned: Note[]; loose: Note[] }> {
   const pinned = await db.getAllAsync<NoteRow>(
@@ -68,7 +72,7 @@ export async function listMainNotes(db: SQLiteDatabase): Promise<{ pinned: Note[
   return { pinned: pinned.map(toNote), loose: loose.map(toNote) };
 }
 
-/** The notes in one folder, pinned first. */
+/** The notes in one category, pinned first. */
 export async function listNotesInCategory(db: SQLiteDatabase, categoryId: string): Promise<Note[]> {
   const rows = await db.getAllAsync<NoteRow>(
     `${SELECT_NOTES} WHERE deleted_at IS NULL AND category_id = ? ${NOTE_ORDER}`,
@@ -89,7 +93,7 @@ export type NoteInput = {
   title: string;
   body: string;
   pinned?: boolean;
-  /** A folder id, or null for none; left out, the folder is not changed. */
+  /** A category id, or null for none; left out, the category is not changed. */
   categoryId?: string | null;
 };
 
@@ -114,9 +118,9 @@ export async function createNote(
   return id;
 }
 
-/** Saves the note's text, and its pin and folder when those are given. */
+/** Saves the note's text, and its pin and category when those are given. */
 export async function updateNote(db: SQLiteDatabase, id: string, changes: NoteInput) {
-  const moveFolder = changes.categoryId !== undefined;
+  const moveCategory = changes.categoryId !== undefined;
   await db.runAsync(
     `UPDATE notes SET title = ?, body = ?, pinned = COALESCE(?, pinned),
        category_id = CASE WHEN ? THEN ? ELSE category_id END, updated_at = ?
@@ -124,7 +128,7 @@ export async function updateNote(db: SQLiteDatabase, id: string, changes: NoteIn
     changes.title,
     changes.body,
     changes.pinned === undefined ? null : changes.pinned ? 1 : 0,
-    moveFolder ? 1 : 0,
+    moveCategory ? 1 : 0,
     changes.categoryId ?? null,
     now(),
     id,
@@ -172,7 +176,7 @@ export async function setNotesPinned(db: SQLiteDatabase, ids: readonly string[],
   notifyChange('notes');
 }
 
-/** Moves several notes into a folder, or out of folders with null (multi-select). */
+/** Moves several notes into a category, or out of categories with null (multi-select). */
 export async function setNotesCategory(
   db: SQLiteDatabase,
   ids: readonly string[],

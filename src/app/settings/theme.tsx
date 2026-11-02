@@ -1,14 +1,16 @@
 import { router } from 'expo-router';
+import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, View, useColorScheme } from 'react-native';
 
 import { Icon, Icons } from '@/components/icon';
 import { SettingsGroup, SettingsPage } from '@/components/settings-row';
 import { ThemeSample } from '@/components/theme-sample';
 import { ThemedText } from '@/components/themed-text';
-import { Radius, Spacing, Themes, type Theme } from '@/constants/theme';
+import { FONT_SET_IDS, FONT_SETS, isFontSetLoaded, loadFontSet, type FontSetId } from '@/constants/fonts';
+import { Radius, Spacing, Themes, withFonts, type Theme } from '@/constants/theme';
 import type { ThemeSetting } from '@/db/settings';
 import { useSettings } from '@/hooks/use-settings';
-import { useTheme } from '@/hooks/use-theme';
+import { ThemeScope, useAppTheme, useTheme } from '@/hooks/use-theme';
 import { buildCustomTheme } from '@/lib/custom-theme';
 
 const OPTIONS: { value: ThemeSetting; title: string; description: string }[] = [
@@ -62,7 +64,62 @@ export default function ThemeSettingsScreen() {
         </View>
         <Icon name={Icons.next} size={22} color="textSecondary" />
       </Pressable>
+
+      <SettingsGroup label="Font">
+        <FontChoices value={settings.fontSet} onChange={(fontSet) => setSetting('fontSet', fontSet)} />
+      </SettingsGroup>
     </SettingsPage>
+  );
+}
+
+/** Every font set, each previewed in its own fonts once they have loaded. */
+function FontChoices({ value, onChange }: { value: FontSetId; onChange: (id: FontSetId) => void }) {
+  const theme = useAppTheme();
+  const [loaded, setLoaded] = useState(() => FONT_SET_IDS.filter(isFontSetLoaded));
+
+  useEffect(() => {
+    let active = true;
+    Promise.all(FONT_SET_IDS.map(async (id) => ((await loadFontSet(id)) ? id : null))).then(
+      (ids) => active && setLoaded(ids.filter((id): id is FontSetId => id !== null)),
+    );
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  return (
+    <View accessibilityRole="radiogroup" accessibilityLabel="Font">
+      {FONT_SET_IDS.map((id, index) => {
+        const set = FONT_SETS[id];
+        const selected = id === value;
+        const preview = loaded.includes(id) ? withFonts(theme, set.families) : theme;
+        return (
+          <Pressable
+            key={id}
+            accessibilityRole="radio"
+            accessibilityState={{ checked: selected }}
+            accessibilityLabel={`${set.label}. ${set.description}`}
+            onPress={() => onChange(id)}
+            style={({ pressed }) => [
+              styles.fontRow,
+              index > 0 && { borderTopColor: theme.colors.border, borderTopWidth: StyleSheet.hairlineWidth },
+              selected && { backgroundColor: theme.colors.backgroundSelected },
+              pressed && styles.pressed,
+            ]}>
+            <ThemeScope theme={preview}>
+              <View style={styles.flex}>
+                <ThemedText type="heading">{set.label}</ThemedText>
+                <ThemedText type="small" themeColor="textSecondary">
+                  {set.description}
+                </ThemedText>
+                <ThemedText type="label">Tasks · 9:30</ThemedText>
+              </View>
+            </ThemeScope>
+            {selected ? <Icon name={Icons.check} size={22} color="accentText" /> : null}
+          </Pressable>
+        );
+      })}
+    </View>
   );
 }
 
@@ -137,6 +194,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.three,
     borderRadius: Radius.large,
+    padding: Spacing.three,
+  },
+  fontRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.three,
     padding: Spacing.three,
   },
   editText: {

@@ -2,12 +2,19 @@ import { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
 import { Pressable, StyleSheet } from 'react-native';
 
 import { formatFieldValue, type DateTimeFieldProps } from '@/components/date-time-field-shared';
+import { TimePickerField } from '@/components/time-picker';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 /** Shows the value; tapping opens Android's system date or time dialog. */
-export function DateTimeField({ mode, value, onChange, label }: DateTimeFieldProps) {
+export function DateTimeField(props: DateTimeFieldProps) {
+  // Times use Forgetless's own wheel picker on every platform.
+  if (props.mode === 'time') return <TimePickerField {...props} />;
+  return <DateField {...props} />;
+}
+
+function DateField({ mode, value, onChange, label }: DateTimeFieldProps) {
   const theme = useTheme();
 
   const open = () => {

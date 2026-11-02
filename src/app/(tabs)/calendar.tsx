@@ -1,10 +1,10 @@
 import { router } from 'expo-router';
-import { useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { useState, type ReactNode } from 'react';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { DayTimeline } from '@/components/day-timeline';
 import { EventRow } from '@/components/event-row';
-import { Icons } from '@/components/icon';
+import { Icon, Icons } from '@/components/icon';
 import { IconButton } from '@/components/icon-button';
 import { MonthGrid } from '@/components/month-grid';
 import { Screen } from '@/components/screen';
@@ -13,13 +13,14 @@ import { SwipePager } from '@/components/swipe-pager';
 import { TaskRow } from '@/components/task-row';
 import { ThemedText } from '@/components/themed-text';
 import { WeekStrip } from '@/components/week-strip';
-import { Spacing } from '@/constants/theme';
+import { Radius, Spacing } from '@/constants/theme';
 import { listOccurrences, type EventOccurrence } from '@/db/events';
 import type { CalendarView } from '@/db/settings';
-import { listTasksDueBetween, type Task } from '@/db/tasks';
+import { listTaskEntriesBetween, taskEntryKey, type Task } from '@/db/tasks';
 import { useLiveQuery } from '@/db/use-live-query';
 import { useLayout } from '@/hooks/use-layout';
 import { useSettings } from '@/hooks/use-settings';
+import { useTheme } from '@/hooks/use-theme';
 import {
   addDays,
   addMonths,
@@ -85,7 +86,7 @@ export default function CalendarScreen() {
     `${from}-${to}`,
     async (db) => ({
       occurrences: await listOccurrences(db, from, to),
-      tasks: await listTasksDueBetween(db, from, to),
+      tasks: await listTaskEntriesBetween(db, from, to),
     }),
   );
 
@@ -125,25 +126,26 @@ export default function CalendarScreen() {
       titleDirection={direction}
       action={
         <View style={styles.actions}>
-          <IconButton
-            icon={Icons.today}
-            label="Go to today"
-            onPress={() => goTo(startOfDay())}
-          />
           <IconButton icon={Icons.previous} label={`Previous ${view}`} onPress={() => step(-1)} />
           <IconButton icon={Icons.next} label={`Next ${view}`} onPress={() => step(1)} />
           <IconButton icon={Icons.add} label="New event" variant="filled" onPress={addEvent} />
         </View>
       }>
       <View style={styles.viewSwitch}>
-        <SegmentedControl
-          label="Calendar view"
-          options={VIEWS}
-          value={view}
-          onChange={(value) => {
-            setDirection(0);
-            setSetting('calendarView', value);
-          }}
+        <View style={styles.flex}>
+          <SegmentedControl
+            label="Calendar view"
+            options={VIEWS}
+            value={view}
+            onChange={(value) => {
+              setDirection(0);
+              setSetting('calendarView', value);
+            }}
+          />
+        </View>
+        <TodayButton
+          away={periodStart(view, selectedDay) !== periodStart(view, startOfDay()) || selectedDay !== startOfDay()}
+          onPress={() => goTo(startOfDay())}
         />
       </View>
       <SwipePager
@@ -183,6 +185,45 @@ export default function CalendarScreen() {
         ) : null}
       </SwipePager>
     </Screen>
+  );
+}
+
+/** Jumps back to today; filled when another day or period is showing. */
+function TodayButton({ away, onPress }: { away: boolean; onPress: () => void }) {
+  const theme = useTheme();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Go to today"
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.todayButton,
+        away
+          ? { backgroundColor: theme.accent, borderColor: theme.accent }
+          : { borderColor: theme.accentText },
+        pressed && styles.pressed,
+      ]}>
+      <Icon name={Icons.today} size={18} color={away ? 'onAccent' : 'accentText'} />
+      <ThemedText type="smallBold" themeColor={away ? 'onAccent' : 'accentText'}>
+        Today
+      </ThemedText>
+    </Pressable>
+  );
+}
+
+/** "EVENTS ———" or "TASKS ———": separates a day's events from its tasks. */
+function Divider({ label, children }: { label: string; children: ReactNode }) {
+  const theme = useTheme();
+  return (
+    <View>
+      <View style={styles.divider}>
+        <ThemedText type="label" themeColor="textSecondary" style={styles.dividerText}>
+          {label}
+        </ThemedText>
+        <View style={[styles.dividerLine, { backgroundColor: theme.border }]} />
+      </View>
+      {children}
+    </View>
   );
 }
 
@@ -278,18 +319,29 @@ function DayView({ day, onSelectDay, busyDays, items }: DayViewProps) {
         <WeekStrip week={day} selectedDay={day} onSelectDay={onSelectDay} busyDays={busyDays} />
       ) : null}
       {allDay.length > 0 || items.tasks.length > 0 ? (
-        <View style={styles.dayTop}>
-          {allDay.map((occurrence) => (
-            <EventRow
-              key={`${occurrence.eventId}:${occurrence.originalStart}`}
-              occurrence={occurrence}
-              day={day}
-            />
-          ))}
-          {items.tasks.map((task) => (
-            <TaskRow key={task.id} task={task} />
-          ))}
-        </View>
+        <ScrollView style={styles.dayTop} contentContainerStyle={styles.dayTopContent}>
+          {allDay.length > 0 ? (
+            <Divider label="All-day events">
+              {allDay.map((occurrence) => (
+                <EventRow
+                  key={`${occurrence.eventId}:${occurrence.originalStart}`}
+                  occurrence={occurrence}
+                  day={day}
+                />
+              ))}
+            </Divider>
+          ) : null}
+          {items.tasks.length > 0 ? (
+            <Divider label={`Tasks · ${items.tasks.length}`}>
+              {items.tasks.map((task) => (
+                <TaskRow key={taskEntryKey(task)} task={task} />
+              ))}
+            </Divider>
+          ) : null}
+        </ScrollView>
+      ) : null}
+      {allDay.length + items.tasks.length > 0 ? (
+        <Divider label="Timeline">{null}</Divider>
       ) : null}
       <DayTimeline day={day} occurrences={timed} />
     </View>
@@ -319,16 +371,24 @@ function DayAgenda({ day, items, loaded, compact }: DayAgendaProps) {
           {compact ? 'Nothing planned' : 'Nothing planned. Tap + to add an event.'}
         </ThemedText>
       ) : null}
-      {items.events.map((occurrence) => (
-        <EventRow
-          key={`${occurrence.eventId}:${occurrence.originalStart}`}
-          occurrence={occurrence}
-          day={day}
-        />
-      ))}
-      {items.tasks.map((task) => (
-        <TaskRow key={task.id} task={task} />
-      ))}
+      {items.events.length > 0 ? (
+        <Divider label={`Events · ${items.events.length}`}>
+          {items.events.map((occurrence) => (
+            <EventRow
+              key={`${occurrence.eventId}:${occurrence.originalStart}`}
+              occurrence={occurrence}
+              day={day}
+            />
+          ))}
+        </Divider>
+      ) : null}
+      {items.tasks.length > 0 ? (
+        <Divider label={`Tasks · ${items.tasks.length}`}>
+          {items.tasks.map((task) => (
+            <TaskRow key={taskEntryKey(task)} task={task} />
+          ))}
+        </Divider>
+      ) : null}
     </View>
   );
 }
@@ -338,8 +398,41 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   viewSwitch: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
     paddingHorizontal: Spacing.three,
     paddingBottom: Spacing.two,
+  },
+  flex: {
+    flex: 1,
+  },
+  todayButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.one,
+    minHeight: 40,
+    borderWidth: 1.5,
+    borderRadius: Radius.pill,
+    paddingHorizontal: Spacing.three,
+  },
+  pressed: {
+    opacity: 0.7,
+  },
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+    paddingHorizontal: Spacing.three,
+    paddingTop: Spacing.two,
+    paddingBottom: Spacing.one,
+  },
+  dividerText: {
+    fontSize: 11,
+  },
+  dividerLine: {
+    flex: 1,
+    height: StyleSheet.hairlineWidth,
   },
   fill: {
     flex: 1,
@@ -356,6 +449,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   dayTop: {
+    flexGrow: 0,
+    maxHeight: '45%',
+  },
+  dayTopContent: {
     paddingTop: Spacing.one,
   },
   dayTitle: {

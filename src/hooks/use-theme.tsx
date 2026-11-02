@@ -1,20 +1,36 @@
-import { createContext, useContext, type PropsWithChildren } from 'react';
+import { createContext, useContext, useEffect, useState, type PropsWithChildren } from 'react';
 import { useColorScheme } from 'react-native';
 
-import { Themes, type Theme } from '@/constants/theme';
+import { FONT_SETS, isFontSetLoaded, loadFontSet } from '@/constants/fonts';
+import { Themes, withFonts, type Theme } from '@/constants/theme';
 import { useSettings } from '@/hooks/use-settings';
 import { buildCustomTheme } from '@/lib/custom-theme';
 
 const ThemeContext = createContext<Theme>(Themes.light);
 
-/** Picks the theme from the Theme setting; "system" follows the phone's light/dark mode. */
+/**
+ * Picks the theme from the Theme setting ("system" follows the phone's light/dark mode) and
+ * the chosen font set, which keeps the brand fonts until its files have loaded.
+ */
 export function AppThemeProvider({ children }: PropsWithChildren<object>) {
   const { settings } = useSettings();
   const scheme = useColorScheme();
-  const theme =
+  const fontSet = settings.fontSet;
+  const [loadedSet, setLoadedSet] = useState(() => (isFontSetLoaded(fontSet) ? fontSet : null));
+
+  useEffect(() => {
+    let active = true;
+    loadFontSet(fontSet).then((ok) => active && ok && setLoadedSet(fontSet));
+    return () => {
+      active = false;
+    };
+  }, [fontSet]);
+
+  const colors =
     settings.theme === 'custom'
       ? buildCustomTheme(settings.customColors)
       : Themes[settings.theme === 'system' ? (scheme === 'dark' ? 'dark' : 'light') : settings.theme];
+  const theme = loadedSet === fontSet ? withFonts(colors, FONT_SETS[fontSet].families) : colors;
   return <ThemeContext.Provider value={theme}>{children}</ThemeContext.Provider>;
 }
 

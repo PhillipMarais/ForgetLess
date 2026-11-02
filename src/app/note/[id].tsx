@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChipGroup } from '@/components/chip';
 import { ChoiceDialog, ConfirmDialog } from '@/components/choice-dialog';
 import { HeaderTextButton, KEYBOARD_GAP, leaveEditor } from '@/components/editor';
+import { DocumentList } from '@/components/document-list';
 import { EmptyState } from '@/components/empty-state';
 import { Icons } from '@/components/icon';
 import { IconButton } from '@/components/icon-button';
@@ -19,18 +20,19 @@ import { listAttachments, type Attachment } from '@/db/attachments';
 import { listCategories } from '@/db/categories';
 import { createNote, deleteNote, getNote, updateNote, type Note } from '@/db/notes';
 import { useLiveQuery } from '@/db/use-live-query';
+import { useDraftDocuments } from '@/hooks/use-draft-documents';
 import { useDraftPhotos } from '@/hooks/use-draft-photos';
 import { useAppTheme } from '@/hooks/use-theme';
 
-type Loaded = { note: Note | null; attachments: Attachment[] };
+type Loaded = { note: Note | null; attachments: Attachment[]; documents: Attachment[] };
 
 export default function NoteScreen() {
-  // `category` pre-selects a folder for a new note (from a folder's + button).
+  // `category` pre-selects a category for a new note (from a category's + button).
   const { id, category } = useLocalSearchParams<{ id: string; category?: string }>();
   const db = useSQLiteContext();
   const isNew = id === 'new';
   const [loaded, setLoaded] = useState<Loaded | null | undefined>(
-    isNew ? { note: null, attachments: [] } : undefined,
+    isNew ? { note: null, attachments: [], documents: [] } : undefined,
   );
 
   useEffect(() => {
@@ -39,7 +41,8 @@ export default function NoteScreen() {
     (async () => {
       const note = await getNote(db, id);
       const attachments = note ? await listAttachments(db, 'note', note.id) : [];
-      if (active) setLoaded(note ? { note, attachments } : null);
+      const documents = note ? await listAttachments(db, 'note', note.id, 'documents') : [];
+      if (active) setLoaded(note ? { note, attachments, documents } : null);
     })();
     return () => {
       active = false;
@@ -64,6 +67,7 @@ export default function NoteScreen() {
 function NoteEditor({
   note,
   attachments,
+  documents,
   newNoteCategory,
 }: Loaded & { newNoteCategory: string | null }) {
   const db = useSQLiteContext();
@@ -74,24 +78,27 @@ function NoteEditor({
   const [pinned, setPinned] = useState(note?.pinned ?? false);
   const initialCategory = note ? note.categoryId : newNoteCategory;
   const [categoryId, setCategoryId] = useState(initialCategory);
-  const { data: categories = [] } = useLiveQuery(['note_categories'], 'folders', listCategories);
+  const { data: categories = [] } = useLiveQuery(['note_categories'], 'categories', listCategories);
   const photos = useDraftPhotos(attachments);
+  const files = useDraftDocuments(documents);
   const [saving, setSaving] = useState(false);
   const [leaving, setLeaving] = useState(false);
   const [dialog, setDialog] = useState<'leave' | 'delete' | null>(null);
   const blockedLeave = useRef<(() => void) | null>(null);
   const insets = useSafeAreaInsets();
 
-  const empty = !title.trim() && !body.trim() && photos.photos.length === 0;
+  const empty =
+    !title.trim() && !body.trim() && photos.photos.length === 0 && files.documents.length === 0;
   const changed =
     title !== (note?.title ?? '') ||
     body !== (note?.body ?? '') ||
     pinned !== (note?.pinned ?? false) ||
     categoryId !== initialCategory ||
-    photos.changed;
+    photos.changed ||
+    files.changed;
   // An empty new note has nothing worth keeping, so leaving it needs no question.
   const dirty = changed && !(note === null && empty);
-  const canSave = dirty && !empty && !saving && !photos.busy;
+  const canSave = dirty && !empty && !saving && !photos.busy && !files.busy;
 
   usePreventRemove(dirty && !leaving, ({ repeat }) => {
     blockedLeave.current = repeat;
@@ -114,6 +121,7 @@ function NoteEditor({
     const noteId = note ? note.id : await createNote(db, input);
     if (note) await updateNote(db, note.id, input);
     await photos.save(db, 'note', noteId);
+    await files.save(db, 'note', noteId);
     setLeaving(true);
   };
 
@@ -170,16 +178,17 @@ function NoteEditor({
         />
         {categories.length > 0 ? (
           <ChipGroup
-            label="Folder"
+            label="Category"
             options={[
-              { label: 'No folder', value: null },
-              ...categories.map((folder) => ({ label: folder.name, value: folder.id as string | null })),
+              { label: 'No category', value: null },
+              ...categories.map((category) => ({ label: category.name, value: category.id as string | null })),
             ]}
             value={categoryId}
             onChange={setCategoryId}
           />
         ) : null}
         <PhotoStrip draft={photos} />
+        <DocumentList draft={files} />
         <TextInput
           value={body}
           onChangeText={setBody}
@@ -213,7 +222,7 @@ function NoteEditor({
       />
       <ConfirmDialog
         visible={dialog === 'delete'}
-        title="Delete this note and its pictures?"
+        title="Delete this note, its pictures and PDFs?"
         confirmLabel="Delete note"
         onConfirm={remove}
         onCancel={() => setDialog(null)}

@@ -39,6 +39,15 @@ export default function SettingsLayout() {
         }}
       />
       <Tabs.Screen
+        name="alarms"
+        options={{
+          title: 'Alarms',
+          tabBarIcon: ({ focused }) => (
+            <Icon name={Icons.alarm} size={22} color={focused ? 'accentText' : 'textSecondary'} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="theme"
         options={{
           title: 'Theme',

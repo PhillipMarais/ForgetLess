@@ -48,3 +48,26 @@ it('fills in missing or invalid custom colours from the defaults', async () => {
   expect(customColors.text).toBe(DEFAULT_SETTINGS.customColors.text);
   expect(customColors.background).toBe(DEFAULT_SETTINGS.customColors.background);
 });
+
+it('keeps valid font and alarm choices and drops unknown ones', async () => {
+  const db = await createMigratedTestDatabase();
+  await saveSetting(db, 'fontSet', 'editorial');
+  await saveSetting(db, 'alarmSoundUri', 'content://media/internal/audio/media/12');
+  await saveSetting(db, 'alarmSnoozeMinutes', 15);
+  let settings = await loadSettings(db);
+  expect(settings).toMatchObject({
+    fontSet: 'editorial',
+    alarmSoundUri: 'content://media/internal/audio/media/12',
+    alarmSnoozeMinutes: 15,
+  });
+
+  const insert = (key: string, value: string) =>
+    db.runAsync('INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES (?, ?, 0)', key, value);
+  await insert('fontSet', '"comic-sans"');
+  await insert('alarmSnoozeMinutes', '7');
+  await insert('alarmSoundUri', 'null');
+  settings = await loadSettings(db);
+  expect(settings.fontSet).toBe(DEFAULT_SETTINGS.fontSet);
+  expect(settings.alarmSnoozeMinutes).toBe(DEFAULT_SETTINGS.alarmSnoozeMinutes);
+  expect(settings.alarmSoundUri).toBeNull();
+});

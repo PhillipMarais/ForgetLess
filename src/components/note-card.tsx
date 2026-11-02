@@ -19,11 +19,11 @@ type NoteCardProps = {
   selecting: boolean;
   selected: boolean;
   onToggle: () => void;
-  /** Folder name, shown on pinned notes that live in a folder. */
-  folderName?: string;
+  /** Category name, shown on pinned notes that live in a category. */
+  categoryName?: string;
 };
 
-export function NoteCard({ note, selecting, selected, onToggle, folderName }: NoteCardProps) {
+export function NoteCard({ note, selecting, selected, onToggle, categoryName }: NoteCardProps) {
   const db = useSQLiteContext();
   const theme = useTheme();
   const [confirming, setConfirming] = useState(false);
@@ -66,6 +66,16 @@ export function NoteCard({ note, selecting, selected, onToggle, folderName }: No
             <ThemedText type="heading" numberOfLines={1} style={styles.title}>
               {title}
             </ThemedText>
+            {note.documentCount > 0 ? (
+              <View style={styles.pdf} accessibilityLabel={`${note.documentCount} PDF${note.documentCount === 1 ? '' : 's'}`}>
+                <Icon name={Icons.pdf} size={16} color="danger" />
+                {note.documentCount > 1 ? (
+                  <ThemedText type="label" themeColor="textSecondary" style={styles.metaText}>
+                    {note.documentCount}
+                  </ThemedText>
+                ) : null}
+              </View>
+            ) : null}
             {note.pinned ? <Icon name={Icons.pin} size={16} color="accentText" /> : null}
           </View>
           {preview ? (
@@ -77,11 +87,11 @@ export function NoteCard({ note, selecting, selected, onToggle, folderName }: No
             <ThemedText type="label" themeColor="textSecondary" style={styles.metaText}>
               Edited {formatDueLabel(note.updatedAt, true)}
             </ThemedText>
-            {folderName ? (
+            {categoryName ? (
               <>
-                <Icon name={Icons.folder} size={12} color="textSecondary" />
+                <Icon name={Icons.category} size={12} color="textSecondary" />
                 <ThemedText type="label" themeColor="textSecondary" style={styles.metaText} numberOfLines={1}>
-                  {folderName}
+                  {categoryName}
                 </ThemedText>
               </>
             ) : null}
@@ -155,6 +165,11 @@ const styles = StyleSheet.create({
   },
   title: {
     flex: 1,
+  },
+  pdf: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.half,
   },
   meta: {
     flexDirection: 'row',

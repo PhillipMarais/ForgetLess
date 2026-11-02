@@ -42,11 +42,11 @@ type SelectionBarProps = {
   selection: NoteSelection;
   /** The notes on screen, to tell whether the selected ones are all pinned. */
   notes: readonly Note[];
-  /** Folders to offer under "Move to folder". */
+  /** Categories to offer under "Move to category". */
   categories: readonly Category[];
 };
 
-/** "N selected" with Pin, Move to folder, Delete and Done. */
+/** "N selected" with Pin, Move to category, Delete and Done. */
 export function SelectionBar({ selection, notes, categories }: SelectionBarProps) {
   const db = useSQLiteContext();
   const theme = useTheme();
@@ -73,7 +73,7 @@ export function SelectionBar({ selection, notes, categories }: SelectionBarProps
         color={allPinned ? 'accentText' : 'text'}
         onPress={() => run(() => setNotesPinned(db, ids, !allPinned))}
       />
-      <IconButton icon={Icons.moveToFolder} label="Move selected notes to a folder" onPress={() => setDialog('move')} />
+      <IconButton icon={Icons.moveToCategory} label="Move selected notes to a category" onPress={() => setDialog('move')} />
       <IconButton
         icon={Icons.delete}
         label="Delete selected notes"
@@ -87,7 +87,7 @@ export function SelectionBar({ selection, notes, categories }: SelectionBarProps
         title={`Move ${count} ${count === 1 ? 'note' : 'notes'} to…`}
         choices={[
           ...categories.map((category) => ({ label: category.name, value: category.id as string | null })),
-          { label: 'No folder', value: null },
+          { label: 'No category', value: null },
         ]}
         onChoose={(categoryId) => run(() => setNotesCategory(db, ids, categoryId))}
         onCancel={() => setDialog(null)}

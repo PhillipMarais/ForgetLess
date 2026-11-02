@@ -23,6 +23,11 @@ type ScreenProps = PropsWithChildren<{
    * (previous). Used by the calendar when moving between days, weeks and months.
    */
   titleDirection?: -1 | 0 | 1;
+  /**
+   * A bar above the title, e.g. the app's logo on Today. `action` then sits in this bar and
+   * the title is shown larger, over up to two lines.
+   */
+  top?: ReactNode;
 }>;
 
 /** Slide-in for content that changed to the next (+1) or previous (-1) period. */
@@ -38,6 +43,7 @@ export function Screen({
   action,
   fullWidth,
   titleDirection = 0,
+  top,
   children,
 }: ScreenProps) {
   const theme = useTheme();
@@ -55,17 +61,23 @@ export function Screen({
       <SafeAreaView
         edges={['top', 'left', 'right']}
         style={[styles.safeArea, !fullWidth && styles.column, wide && styles.wide]}>
+        {top ? (
+          <View style={styles.topBar}>
+            <View style={styles.headerText}>{top}</View>
+            {action}
+          </View>
+        ) : null}
         <View style={styles.header}>
           <Animated.View
             key={`${subtitle}|${title}`}
             entering={slideIn(titleDirection)}
             style={styles.headerText}>
             {subtitle ? <ThemedText type="label">{subtitle}</ThemedText> : null}
-            <ThemedText type="subtitle" numberOfLines={1}>
+            <ThemedText type={top ? 'title' : 'subtitle'} numberOfLines={top ? 2 : 1} accessibilityRole="header">
               {title}
             </ThemedText>
           </Animated.View>
-          {action}
+          {top ? null : action}
         </View>
         <View style={styles.content}>{children}</View>
       </SafeAreaView>
@@ -94,6 +106,14 @@ const styles = StyleSheet.create({
   },
   wide: {
     paddingHorizontal: Spacing.three,
+  },
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingLeft: Spacing.three,
+    paddingRight: Spacing.two,
+    paddingTop: Spacing.two,
+    gap: Spacing.two,
   },
   header: {
     flexDirection: 'row',

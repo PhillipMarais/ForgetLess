@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useState } from 'react';
 import { FlatList, StyleSheet, TextInput, View } from 'react-native';
@@ -32,14 +33,14 @@ export default function TasksScreen() {
       <FlatList
         data={tasks ?? []}
         keyExtractor={(task) => task.id}
-        renderItem={({ item }) => <TaskRow task={item} />}
+        renderItem={({ item }) => <TaskRow task={item} showNotes />}
         keyboardShouldPersistTaps="handled"
         ListEmptyComponent={
           tasks ? (
             <EmptyState
               icon={Icons.tasks}
               title="No tasks yet"
-              message="Type a task above and press enter to add it."
+              message="Type a task above and press enter, or tap + to add one with a time, repeat or alarm."
             />
           ) : undefined
         }
@@ -55,8 +56,12 @@ function AddTask() {
   const [dueDays, setDueDays] = useState<DueDays>(null);
   const canAdd = title.trim().length > 0;
 
+  // With no text, + opens the full Add task screen (repeats, time, alarm, pictures).
   const add = async () => {
-    if (!canAdd) return;
+    if (!canAdd) {
+      router.push({ pathname: '/task/[id]', params: { id: 'new' } });
+      return;
+    }
     await createTask(db, {
       title,
       dueAt: dueDays === null ? null : addDays(startOfDay(), dueDays),
@@ -85,9 +90,8 @@ function AddTask() {
         />
         <IconButton
           icon={Icons.add}
-          label="Add task"
+          label={canAdd ? 'Add task' : 'Open the Add task screen'}
           variant="filled"
-          disabled={!canAdd}
           onPress={add}
         />
       </View>

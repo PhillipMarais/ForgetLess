@@ -43,14 +43,14 @@ export default function CategoryEditorScreen() {
   if (category === null && !isNew) {
     return (
       <ThemedView style={styles.fill}>
-        <EmptyState icon={Icons.folder} title="Folder not found" message="It may have been deleted." />
+        <EmptyState icon={Icons.category} title="Category not found" message="It may have been deleted." />
       </ThemedView>
     );
   }
   return <CategoryEditor key={id} category={category} />;
 }
 
-/** Name and icon picture for a folder. Icon files picked but not saved are cleaned up. */
+/** Name and icon picture for a category. Icon files picked but not saved are cleaned up. */
 function CategoryEditor({ category }: { category: Category | null }) {
   const db = useSQLiteContext();
   const theme = useTheme();
@@ -103,15 +103,15 @@ function CategoryEditor({ category }: { category: Category | null }) {
     <EditorLayout>
       <Stack.Screen
         options={{
-          title: category ? 'Edit folder' : 'New folder',
+          title: category ? 'Edit category' : 'New category',
           headerRight: () => <HeaderTextButton label="Save" onPress={save} disabled={!valid} />,
         }}
       />
       <FormTextInput
         value={name}
         onChangeText={setName}
-        placeholder="Folder name"
-        accessibilityLabel="Folder name"
+        placeholder="Category name"
+        accessibilityLabel="Category name"
         autoFocus={!category}
         variant="title"
       />
@@ -129,7 +129,7 @@ function CategoryEditor({ category }: { category: Category | null }) {
             <IconAction icon={Icons.photo} label="Choose picture" onPress={() => picking.pick('library')} />
             <IconAction icon={Icons.camera} label="Take photo" onPress={() => picking.pick('camera')} />
             {iconUri ? (
-              <IconAction icon={Icons.close} label="Use folder symbol" onPress={() => setIconUri(null)} />
+              <IconAction icon={Icons.close} label="Use the default icon" onPress={() => setIconUri(null)} />
             ) : null}
           </View>
         </View>
@@ -139,7 +139,7 @@ function CategoryEditor({ category }: { category: Category | null }) {
           </ThemedText>
         ) : (
           <ThemedText type="small" themeColor="textSecondary">
-            The icon shows next to the folder in your notes list.
+            The icon shows next to the category in your notes list.
           </ThemedText>
         )}
       </FormSection>
@@ -149,14 +149,14 @@ function CategoryEditor({ category }: { category: Category | null }) {
           accessibilityRole="button"
           onPress={() => setConfirmingDelete(true)}
           style={({ pressed }) => [styles.delete, pressed && styles.pressed]}>
-          <ThemedText themeColor="danger">Delete folder</ThemedText>
+          <ThemedText themeColor="danger">Delete category</ThemedText>
         </Pressable>
       ) : null}
 
       <ConfirmDialog
         visible={confirmingDelete}
-        title={`Delete the “${category?.name}” folder? Its notes are kept and move back to Notes.`}
-        confirmLabel="Delete folder"
+        title={`Delete the “${category?.name}” category? Its notes are kept and move back to Notes.`}
+        confirmLabel="Delete category"
         onConfirm={remove}
         onCancel={() => setConfirmingDelete(false)}
       />

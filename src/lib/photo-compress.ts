@@ -22,7 +22,7 @@ export function resizeToFit(width: number, height: number, maxEdge = MAX_PHOTO_E
   return width >= height ? { width: maxEdge } : { height: maxEdge };
 }
 
-/** Longest edge for small pictures such as folder icons. */
+/** Longest edge for small pictures such as category icons. */
 export const ICON_EDGE = 384;
 
 export type CompressOptions = { base64: boolean; maxEdge?: number };

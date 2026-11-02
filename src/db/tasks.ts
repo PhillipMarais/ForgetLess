@@ -1,6 +1,6 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
-import { nextOccurrenceAfter } from '@/lib/recurrence';
+import { nextOccurrenceAfter, occurrencesLimited } from '@/lib/recurrence';
 
 import { attachmentColumns, deleteAttachmentsFor } from './attachments';
 import { notifyChange } from './changes';
@@ -22,6 +22,12 @@ export type Task = {
   coverUri: string | null;
   createdAt: number;
   updatedAt: number;
+  /**
+   * Set on list entries for one date of a repeating task, rather than the task itself:
+   * 'done' is a ticked-off past date, 'upcoming' a later date shown in the calendar.
+   * `dueAt` is then that date and `completedAt` when it was ticked off.
+   */
+  occurrence: 'done' | 'upcoming' | null;
 };
 
 type TaskRow = {
@@ -59,8 +65,38 @@ function toTask(row: TaskRow): Task {
     coverUri: row.cover_uri,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    occurrence: null,
   };
 }
+
+/** A unique key for a list entry: one task can have several dated entries. */
+export function taskEntryKey(task: Task) {
+  return task.occurrence ? `${task.id}:${task.occurrence}:${task.dueAt}` : task.id;
+}
+
+type DoneOccurrenceRow = TaskRow & { original_start: number; done_at: number };
+
+/** Ticked-off dates of repeating tasks, as list entries. */
+async function listDoneOccurrences(db: SQLiteDatabase, where: string, ...params: number[]) {
+  const rows = await db.getAllAsync<DoneOccurrenceRow>(
+    `SELECT tasks.*, ${attachmentColumns('task', 'tasks')},
+            e.original_start AS original_start, e.completed_at AS done_at
+     FROM occurrence_exceptions e JOIN tasks ON tasks.id = e.owner_id
+     WHERE e.owner_type = 'task' AND e.deleted_at IS NULL AND e.completed_at IS NOT NULL
+       AND tasks.deleted_at IS NULL AND ${where}`,
+    ...params,
+  );
+  return rows.map(
+    (row): Task => ({
+      ...toTask(row),
+      dueAt: row.original_start,
+      completedAt: row.done_at,
+      occurrence: 'done',
+    }),
+  );
+}
+
+const byDue = (a: Task, b: Task) => a.dueAt! - b.dueAt! || a.sortOrder - b.sortOrder;
 
 /** Open tasks first (soonest due, undated last), then completed tasks, most recent first. */
 export async function listTasks(db: SQLiteDatabase): Promise<Task[]> {
@@ -101,6 +137,61 @@ export async function listTasksDueBetween(
     to,
   );
   return rows.map(toTask);
+}
+
+/**
+ * Today's list: open tasks due before `tomorrow` (overdue ones included), plus tasks and
+ * repeating dates ticked off today, which stay (struck through) until swiped away.
+ */
+export async function listTodayTasks(
+  db: SQLiteDatabase,
+  today: number,
+  tomorrow: number,
+): Promise<Task[]> {
+  const rows = await db.getAllAsync<TaskRow>(
+    `${SELECT_TASKS}
+     WHERE deleted_at IS NULL AND due_at IS NOT NULL AND due_at < ?
+       AND (completed_at IS NULL OR (completed_at >= ? AND dismissed_on IS NULL))`,
+    tomorrow,
+    today,
+  );
+  const done = await listDoneOccurrences(
+    db,
+    'e.completed_at >= ? AND e.original_start < ? AND e.dismissed_on IS NULL',
+    today,
+    tomorrow,
+  );
+  return [...rows.map(toTask), ...done].sort(byDue);
+}
+
+/**
+ * Every task entry dated within [from, to) for the calendar: tasks due then, ticked-off
+ * dates of repeating tasks, and their upcoming dates.
+ */
+export async function listTaskEntriesBetween(
+  db: SQLiteDatabase,
+  from: number,
+  to: number,
+): Promise<Task[]> {
+  const rows = (
+    await db.getAllAsync<TaskRow>(
+      `${SELECT_TASKS}
+       WHERE deleted_at IS NULL AND due_at < ? AND (due_at >= ? OR (rrule IS NOT NULL AND completed_at IS NULL))`,
+      to,
+      from,
+    )
+  ).map(toTask);
+
+  const entries: Task[] = [];
+  for (const task of rows) {
+    if (task.dueAt! >= from) entries.push(task);
+    if (task.rrule && task.completedAt === null) {
+      const later = occurrencesLimited(task.rrule, task.dueAt!, Math.max(from, task.dueAt! + 1), to, 62);
+      for (const dueAt of later) entries.push({ ...task, dueAt, occurrence: 'upcoming' });
+    }
+  }
+  const done = await listDoneOccurrences(db, 'e.original_start >= ? AND e.original_start < ?', from, to);
+  return [...entries, ...done].sort(byDue);
 }
 
 export async function getTask(db: SQLiteDatabase, id: string): Promise<Task | null> {
@@ -173,7 +264,7 @@ export async function setTaskCompleted(db: SQLiteDatabase, id: string, completed
 
   if (next === null) {
     await db.runAsync(
-      'UPDATE tasks SET completed_at = ?, updated_at = ? WHERE id = ?',
+      'UPDATE tasks SET completed_at = ?, dismissed_on = NULL, updated_at = ? WHERE id = ?',
       completed ? timestamp : null,
       timestamp,
       id,
@@ -188,7 +279,8 @@ export async function setTaskCompleted(db: SQLiteDatabase, id: string, completed
          (id, owner_type, owner_id, original_start, completed_at, created_at, updated_at)
        VALUES (?, 'task', ?, ?, ?, ?, ?)
        ON CONFLICT (owner_type, owner_id, original_start) DO UPDATE SET
-         completed_at = excluded.completed_at, updated_at = excluded.updated_at, deleted_at = NULL`,
+         completed_at = excluded.completed_at, updated_at = excluded.updated_at,
+         deleted_at = NULL, dismissed_on = NULL`,
       newId(),
       id,
       task.dueAt,
@@ -205,6 +297,64 @@ export async function setTaskCompleted(db: SQLiteDatabase, id: string, completed
   });
   notifyChange('tasks');
   notifyChange('occurrence_exceptions');
+}
+
+/**
+ * Unticks one ticked-off date of a repeating task. The task moves back to that date if it
+ * had moved past it, so it is due again.
+ */
+export async function reopenOccurrence(db: SQLiteDatabase, taskId: string, originalStart: number) {
+  const timestamp = now();
+  await db.withTransactionAsync(async () => {
+    await db.runAsync(
+      `UPDATE occurrence_exceptions SET deleted_at = ?, updated_at = ?
+       WHERE owner_type = 'task' AND owner_id = ? AND original_start = ?`,
+      timestamp,
+      timestamp,
+      taskId,
+      originalStart,
+    );
+    await db.runAsync(
+      `UPDATE tasks SET due_at = ?, completed_at = NULL, updated_at = ?
+       WHERE id = ? AND due_at > ?`,
+      originalStart,
+      timestamp,
+      taskId,
+      originalStart,
+    );
+  });
+  notifyChange('tasks');
+  notifyChange('occurrence_exceptions');
+}
+
+/** Ticks a list entry off or on, whether it is a task or one date of a repeating task. */
+export function toggleTaskEntry(db: SQLiteDatabase, task: Task) {
+  if (task.occurrence === 'done') return reopenOccurrence(db, task.id, task.dueAt!);
+  return setTaskCompleted(db, task.id, task.completedAt === null);
+}
+
+/** Clears a ticked-off entry from Today (like swiping away a notification). */
+export async function dismissFromToday(db: SQLiteDatabase, task: Task, today: number) {
+  const timestamp = now();
+  if (task.occurrence === 'done') {
+    await db.runAsync(
+      `UPDATE occurrence_exceptions SET dismissed_on = ?, updated_at = ?
+       WHERE owner_type = 'task' AND owner_id = ? AND original_start = ?`,
+      today,
+      timestamp,
+      task.id,
+      task.dueAt,
+    );
+    notifyChange('occurrence_exceptions');
+  } else {
+    await db.runAsync(
+      'UPDATE tasks SET dismissed_on = ?, updated_at = ? WHERE id = ?',
+      today,
+      timestamp,
+      task.id,
+    );
+    notifyChange('tasks');
+  }
 }
 
 /**

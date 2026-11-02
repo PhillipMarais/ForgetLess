@@ -1,6 +1,8 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { router } from 'expo-router';
 import type { SQLiteDatabase } from 'expo-sqlite';
+import type { ReactElement } from 'react';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { TaskRow } from './task-row';
 import { createTask, listTasks, type Task } from '@/db/tasks';
@@ -21,6 +23,9 @@ async function addTask(input: Parameters<typeof createTask>[1]): Promise<Task> {
   return (await listTasks(mockDb)).find((task) => task.id === id)!;
 }
 
+/** Rows can be swiped, so they need the gesture root the app wraps everything in. */
+const renderRow = (row: ReactElement) => render(<GestureHandlerRootView>{row}</GestureHandlerRootView>);
+
 beforeEach(async () => {
   mockDb = await createMigratedTestDatabase();
 });
@@ -30,7 +35,7 @@ it('shows the title and due label', async () => {
   today.setHours(0, 0, 0, 0);
   const task = await addTask({ title: 'Buy milk', dueAt: today.getTime(), dueAllDay: true });
 
-  await render(<TaskRow task={task} />);
+  await renderRow(<TaskRow task={task} />);
 
   expect(screen.getByText('Buy milk')).toBeTruthy();
   expect(screen.getByText('Today')).toBeTruthy();
@@ -39,7 +44,7 @@ it('shows the title and due label', async () => {
 
 it('marks the task complete when the checkbox is pressed', async () => {
   const task = await addTask({ title: 'Call plumber' });
-  await render(<TaskRow task={task} />);
+  await renderRow(<TaskRow task={task} />);
 
   await fireEvent.press(screen.getByRole('checkbox', { name: 'Call plumber' }));
 
@@ -50,7 +55,7 @@ it('marks the task complete when the checkbox is pressed', async () => {
 
 it('asks before deleting, and deletes only once confirmed', async () => {
   const task = await addTask({ title: 'Temporary' });
-  await render(<TaskRow task={task} />);
+  await renderRow(<TaskRow task={task} />);
 
   await fireEvent.press(screen.getByRole('button', { name: 'Delete Temporary' }));
   expect(await listTasks(mockDb)).toHaveLength(1);
@@ -63,7 +68,7 @@ it('asks before deleting, and deletes only once confirmed', async () => {
 
 it('keeps the task when the delete is cancelled', async () => {
   const task = await addTask({ title: 'Keep me' });
-  await render(<TaskRow task={task} />);
+  await renderRow(<TaskRow task={task} />);
 
   await fireEvent.press(screen.getByRole('button', { name: 'Delete Keep me' }));
   await fireEvent.press(screen.getByRole('button', { name: 'Cancel' }));
@@ -74,7 +79,7 @@ it('keeps the task when the delete is cancelled', async () => {
 
 it('opens the task editor when the title is pressed', async () => {
   const task = await addTask({ title: 'Plan trip' });
-  await render(<TaskRow task={task} />);
+  await renderRow(<TaskRow task={task} />);
 
   await fireEvent.press(screen.getByRole('button', { name: 'Edit Plan trip' }));
 

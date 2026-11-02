@@ -1,68 +1,53 @@
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
+import { AlarmField } from '@/components/alarm-field';
 import { ChipGroup } from '@/components/chip';
 import { DateTimeField } from '@/components/date-time-field';
 import { EditorLayout, HeaderTextButton, leaveEditor } from '@/components/editor';
 import { EmptyState } from '@/components/empty-state';
 import { FormRow, FormSection, FormSwitch, FormTextInput } from '@/components/form';
-import { Icons } from '@/components/icon';
+import { Icon, Icons } from '@/components/icon';
 import { PhotoStrip } from '@/components/photo-strip';
+import { MonthDayPicker, WeekdayPicker } from '@/components/repeat-pickers';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { Radius, Spacing } from '@/constants/theme';
 import { listAttachments, type Attachment } from '@/db/attachments';
-import { deleteTask, getTask, updateTask, type Task } from '@/db/tasks';
+import { getAlarmOffset, setAlarmOffset } from '@/db/reminders';
+import { createTask, deleteTask, getTask, updateTask, type Task } from '@/db/tasks';
 import { useDraftPhotos } from '@/hooks/use-draft-photos';
-import { nextHour, startOfDay, withTimeOf } from '@/lib/dates';
-import {
-  buildRRule,
-  REPEAT_OPTIONS,
-  repeatFrequencyOf,
-  type RepeatFrequency,
-} from '@/lib/recurrence';
+import { useTheme } from '@/hooks/use-theme';
+import { formatDueLabel } from '@/lib/dates';
+import { describeRepeat, ordinal, REPEAT_OPTIONS } from '@/lib/recurrence';
+import { resolveSchedule, sameSchedule, scheduleFrom, type TaskSchedule } from '@/lib/task-schedule';
 
-type Draft = {
-  title: string;
-  notes: string;
-  hasDue: boolean;
-  /** Kept while the due date is switched off, so switching it back on restores it. */
-  dueAt: number;
-  hasTime: boolean;
-  repeat: RepeatFrequency | null;
-};
-
-function draftFrom(task: Task): Draft {
-  return {
-    title: task.title,
-    notes: task.notes ?? '',
-    hasDue: task.dueAt !== null,
-    dueAt: task.dueAt ?? startOfDay(),
-    hasTime: task.dueAt !== null && !task.dueAllDay,
-    repeat: repeatFrequencyOf(task.rrule),
-  };
-}
+type Loaded = { task: Task | null; attachments: Attachment[]; alarm: number | null };
 
 export default function TaskScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  // `title` pre-fills a new task typed on the Tasks tab.
+  const { id, title } = useLocalSearchParams<{ id: string; title?: string }>();
   const db = useSQLiteContext();
-  const [loaded, setLoaded] = useState<
-    { task: Task; attachments: Attachment[] } | null | undefined
-  >(undefined);
+  const isNew = id === 'new';
+  const [loaded, setLoaded] = useState<Loaded | null | undefined>(
+    isNew ? { task: null, attachments: [], alarm: null } : undefined,
+  );
 
   useEffect(() => {
+    if (isNew) return;
     let active = true;
     (async () => {
       const task = await getTask(db, id);
       const attachments = task ? await listAttachments(db, 'task', task.id) : [];
-      if (active) setLoaded(task ? { task, attachments } : null);
+      const alarm = task ? await getAlarmOffset(db, 'task', task.id) : null;
+      if (active) setLoaded(task ? { task, attachments, alarm } : null);
     })();
     return () => {
       active = false;
     };
-  }, [db, id]);
+  }, [db, id, isNew]);
 
   if (loaded === undefined) return <ThemedView style={styles.fill} />;
   if (loaded === null) {
@@ -73,38 +58,45 @@ export default function TaskScreen() {
       </ThemedView>
     );
   }
-  return <TaskEditor key={loaded.task.id} {...loaded} />;
+  return <TaskEditor key={id} {...loaded} initialTitle={title ?? ''} />;
 }
 
-function TaskEditor({ task, attachments }: { task: Task; attachments: Attachment[] }) {
+type Draft = TaskSchedule & { title: string; notes: string; alarm: number | null };
+
+function TaskEditor({ task, attachments, alarm, initialTitle }: Loaded & { initialTitle: string }) {
   const db = useSQLiteContext();
-  const [draft, setDraft] = useState(() => draftFrom(task));
+  const [initial] = useState<Draft>(() => ({
+    ...scheduleFrom(task),
+    title: task?.title ?? initialTitle,
+    notes: task?.notes ?? '',
+    alarm,
+  }));
+  const [draft, setDraft] = useState(initial);
   const [saving, setSaving] = useState(false);
   const photos = useDraftPhotos(attachments);
   const update = (changes: Partial<Draft>) => setDraft((current) => ({ ...current, ...changes }));
   const valid = draft.title.trim().length > 0 && !saving && !photos.busy;
 
-  const changeHasTime = (hasTime: boolean) =>
-    update({
-      hasTime,
-      dueAt: hasTime ? withTimeOf(draft.dueAt, nextHour()) : startOfDay(draft.dueAt),
-    });
+  const { repeat } = draft;
+  const dated = repeat !== null || draft.hasDate;
+  // Keep an existing task's due date (it may be overdue) unless its schedule was changed.
+  const resolved =
+    task && sameSchedule(draft, initial)
+      ? { dueAt: task.dueAt, dueAllDay: task.dueAllDay, rrule: task.rrule }
+      : resolveSchedule(draft);
 
   const save = async () => {
     setSaving(true);
-    await updateTask(db, task.id, {
-      title: draft.title,
-      notes: draft.notes.trim() || null,
-      dueAt: draft.hasDue ? (draft.hasTime ? draft.dueAt : startOfDay(draft.dueAt)) : null,
-      dueAllDay: draft.hasDue && !draft.hasTime,
-      rrule: draft.hasDue ? buildRRule(draft.repeat) : null,
-    });
-    await photos.save(db, 'task', task.id);
+    const input = { title: draft.title, notes: draft.notes.trim() || null, ...resolved };
+    const taskId = task ? task.id : await createTask(db, input);
+    if (task) await updateTask(db, task.id, input);
+    await setAlarmOffset(db, 'task', taskId, dated && draft.hasTime ? draft.alarm : null);
+    await photos.save(db, 'task', taskId);
     leaveEditor('/tasks');
   };
 
   const remove = async () => {
-    await deleteTask(db, task.id);
+    if (task) await deleteTask(db, task.id);
     leaveEditor('/tasks');
   };
 
@@ -112,60 +104,74 @@ function TaskEditor({ task, attachments }: { task: Task; attachments: Attachment
     <EditorLayout>
       <Stack.Screen
         options={{
-          title: 'Edit task',
+          title: task ? 'Edit task' : 'Add task',
           headerRight: () => <HeaderTextButton label="Save" onPress={save} disabled={!valid} />,
         }}
       />
       <FormTextInput
         value={draft.title}
         onChangeText={(title) => update({ title })}
-        placeholder="Title"
+        placeholder="What needs doing?"
         accessibilityLabel="Title"
+        autoFocus={!task && !initialTitle}
         variant="title"
       />
 
-      <FormSection>
-        <FormSwitch label="Due date" value={draft.hasDue} onChange={(hasDue) => update({ hasDue })} />
-        {draft.hasDue ? (
+      <FormSection label="Repeat">
+        <ChipGroup label="Repeat" options={REPEAT_OPTIONS} value={repeat} onChange={(next) => update({ repeat: next })} />
+      </FormSection>
+
+      <FormSection label={scheduleLabel(draft)}>
+        {repeat === null ? (
           <>
-            <FormRow label="Date">
-              <DateTimeField
-                mode="date"
-                label="Due date"
-                value={draft.dueAt}
-                onChange={(dueAt) => update({ dueAt })}
-              />
-            </FormRow>
-            <FormSwitch label="Time" value={draft.hasTime} onChange={changeHasTime} />
+            <FormSwitch label="Date" value={draft.hasDate} onChange={(hasDate) => update({ hasDate })} />
+            {draft.hasDate ? (
+              <FormRow label="Day">
+                <DateTimeField mode="date" label="Date" value={draft.date} onChange={(date) => update({ date })} />
+              </FormRow>
+            ) : null}
+          </>
+        ) : null}
+        {repeat === 'daily' ? (
+          <ThemedText type="small" themeColor="textSecondary">
+            Every day, starting today.
+          </ThemedText>
+        ) : null}
+        {repeat === 'weekly' ? (
+          <WeekdayPicker value={draft.weekdays} onChange={(weekdays) => update({ weekdays })} />
+        ) : null}
+        {repeat === 'monthly' ? (
+          <>
+            <MonthDayPicker value={draft.monthDay} onChange={(monthDay) => update({ monthDay })} />
+            {draft.monthDay > 28 ? (
+              <ThemedText type="small" themeColor="textSecondary">
+                Months without a {ordinal(draft.monthDay)} are skipped.
+              </ThemedText>
+            ) : null}
+          </>
+        ) : null}
+        {repeat === 'yearly' ? (
+          <FormRow label="Every year on">
+            <DateTimeField mode="date" label="Date" value={draft.date} onChange={(date) => update({ date })} />
+          </FormRow>
+        ) : null}
+
+        {dated ? (
+          <>
+            <FormSwitch label="Time" value={draft.hasTime} onChange={(hasTime) => update({ hasTime })} />
             {draft.hasTime ? (
               <FormRow label="At">
-                <DateTimeField
-                  mode="time"
-                  label="Due time"
-                  value={draft.dueAt}
-                  onChange={(dueAt) => update({ dueAt })}
-                />
+                <DateTimeField mode="time" label="Time" value={draft.time} onChange={(time) => update({ time })} />
               </FormRow>
+            ) : null}
+            {draft.hasTime ? (
+              <AlarmField value={draft.alarm} onChange={(next) => update({ alarm: next })} />
             ) : null}
           </>
         ) : null}
       </FormSection>
 
-      {draft.hasDue ? (
-        <FormSection label="Repeat">
-          <ChipGroup
-            label="Repeat"
-            options={REPEAT_OPTIONS}
-            value={draft.repeat}
-            onChange={(repeat) => update({ repeat })}
-          />
-          {draft.repeat ? (
-            <ThemedText type="small" themeColor="textSecondary">
-              Checking it off moves it to the next date.
-            </ThemedText>
-          ) : null}
-        </FormSection>
-      ) : null}
+      {resolved.dueAt !== null ? <ScheduleSummary resolved={resolved} /> : null}
 
       <FormSection label="Pictures">
         <PhotoStrip draft={photos} />
@@ -181,19 +187,57 @@ function TaskEditor({ task, attachments }: { task: Task; attachments: Attachment
         />
       </FormSection>
 
-      <Pressable
-        accessibilityRole="button"
-        onPress={remove}
-        style={({ pressed }) => [styles.delete, pressed && styles.pressed]}>
-        <ThemedText themeColor="danger">Delete task</ThemedText>
-      </Pressable>
+      {task ? (
+        <Pressable
+          accessibilityRole="button"
+          onPress={remove}
+          style={({ pressed }) => [styles.delete, pressed && styles.pressed]}>
+          <ThemedText themeColor="danger">Delete task</ThemedText>
+        </Pressable>
+      ) : null}
     </EditorLayout>
+  );
+}
+
+function scheduleLabel({ repeat }: Draft) {
+  if (repeat === 'weekly') return 'On these days';
+  if (repeat === 'monthly') return 'On this day of the month';
+  if (repeat === 'yearly') return 'Date';
+  if (repeat === 'daily') return 'Days';
+  return 'When';
+}
+
+/** "Every Mon, Wed · Next: Wed 4 Nov 08:00". */
+function ScheduleSummary({ resolved }: { resolved: ReturnType<typeof resolveSchedule> }) {
+  const theme = useTheme();
+  return (
+    <View style={[styles.summary, { backgroundColor: theme.backgroundElement }]}>
+      <Icon name={resolved.rrule ? Icons.repeat : Icons.calendar} size={18} color="accentText" />
+      <View style={styles.flex}>
+        {resolved.rrule ? <ThemedText type="smallBold">{describeRepeat(resolved.rrule)}</ThemedText> : null}
+        <ThemedText type="small" themeColor="textSecondary">
+          {resolved.rrule ? 'Next: ' : 'Due '}
+          {formatDueLabel(resolved.dueAt!, resolved.dueAllDay)}
+          {resolved.rrule ? ' · Ticking it off moves it to the next date.' : ''}
+        </ThemedText>
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   fill: {
     flex: 1,
+  },
+  flex: {
+    flex: 1,
+  },
+  summary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.three,
+    borderRadius: Radius.medium,
+    padding: Spacing.three,
   },
   delete: {
     alignItems: 'center',

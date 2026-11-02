@@ -131,6 +131,12 @@ const MIGRATIONS: readonly string[] = [
   ALTER TABLE notes ADD COLUMN category_id TEXT;
   CREATE INDEX notes_category_id ON notes (category_id) WHERE deleted_at IS NULL;
   `,
+  // 4: done tasks swiped off Today (the day they were cleared); file names for PDFs
+  `
+  ALTER TABLE tasks ADD COLUMN dismissed_on INTEGER;
+  ALTER TABLE occurrence_exceptions ADD COLUMN dismissed_on INTEGER;
+  ALTER TABLE attachments ADD COLUMN file_name TEXT;
+  `,
 ];
 
 export async function migrate(db: SQLiteDatabase) {
