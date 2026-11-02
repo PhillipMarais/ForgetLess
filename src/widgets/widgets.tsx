@@ -1,3 +1,7 @@
+// Widgets are drawn by react-native-android-widget, which calls these as plain functions:
+// keep the React Compiler (and its hooks) out of this file.
+'use no memo';
+
 import {
   FlexWidget,
   ListWidget,

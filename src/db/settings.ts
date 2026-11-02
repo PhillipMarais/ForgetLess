@@ -1,6 +1,7 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
 import { FONT_SET_IDS, type FontSetId } from '@/constants/fonts';
+import { SPEECH_LANGUAGE_VALUES, type SpeechLanguage } from '@/constants/speech-languages';
 import { CONTROL_SIZES, TEXT_SIZES, type ControlSize, type TextSize } from '@/constants/theme';
 import { DEFAULT_CUSTOM_COLORS, sanitizeCustomColors, type CustomColors } from '@/lib/custom-theme';
 
@@ -25,6 +26,8 @@ export const DEFAULT_SETTINGS = {
   taskDefaultTime: false,
   /** …and an alarm at that time (needs taskDefaultTime). */
   taskDefaultAlarm: false,
+  /** Language for speaking notes; 'phone' follows the phone's language. */
+  speechLanguage: 'phone' as SpeechLanguage,
   textSize: 'default' as TextSize,
   controlSize: 'default' as ControlSize,
   /** Colours for the Custom theme. */
@@ -60,6 +63,7 @@ function normalize(key: SettingKey, value: unknown): unknown {
   }
   if (key === 'calendarView') return CALENDAR_VIEWS.includes(value as string) ? value : undefined;
   if (key === 'calendarStartView') return CALENDAR_START_VIEWS.includes(value as string) ? value : undefined;
+  if (key === 'speechLanguage') return SPEECH_LANGUAGE_VALUES.includes(value as string) ? value : undefined;
   if (key === 'textSize') return (value as string) in TEXT_SIZES ? value : undefined;
   if (key === 'controlSize') return (value as string) in CONTROL_SIZES ? value : undefined;
   if (key === 'customColors') return value && typeof value === 'object' ? sanitizeCustomColors(value) : undefined;

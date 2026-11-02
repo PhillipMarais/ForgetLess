@@ -1,4 +1,5 @@
 import { SettingChoices, SettingSwitch, SettingsGroup, SettingsPage } from '@/components/settings-row';
+import { SPEECH_LANGUAGES } from '@/constants/speech-languages';
 import type { CalendarStartView } from '@/db/settings';
 import { useSettings } from '@/hooks/use-settings';
 
@@ -70,6 +71,15 @@ export default function GeneralSettingsScreen() {
           options={START_VIEWS}
           value={settings.calendarStartView}
           onChange={(value) => setSetting('calendarStartView', value)}
+        />
+      </SettingsGroup>
+
+      <SettingsGroup label="Voice notes language">
+        <SettingChoices
+          label="Voice notes language"
+          options={SPEECH_LANGUAGES}
+          value={settings.speechLanguage}
+          onChange={(value) => setSetting('speechLanguage', value)}
         />
       </SettingsGroup>
     </SettingsPage>

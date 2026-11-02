@@ -21,6 +21,8 @@ type DictationButtonProps = {
   onStop: () => void;
   /** e.g. "Speak to add notes". */
   label?: string;
+  /** The language being listened for, shown under the button, e.g. "Afrikaans". */
+  languageName?: string;
 };
 
 /**
@@ -34,6 +36,7 @@ export function DictationButton({
   onStart,
   onStop,
   label = 'Speak',
+  languageName,
 }: DictationButtonProps) {
   const theme = useTheme();
   const paddingVertical = useControlSize(Spacing.two);
@@ -72,6 +75,11 @@ export function DictationButton({
           {listening ? 'Listening… tap to stop' : label}
         </ThemedText>
       </Pressable>
+      {languageName && !error ? (
+        <ThemedText type="small" themeColor="textSecondary" style={styles.language}>
+          Language: {languageName} · change it in Settings → General
+        </ThemedText>
+      ) : null}
       {listening && partial ? (
         <ThemedText type="small" themeColor="textSecondary" style={styles.partial} accessibilityLiveRegion="polite">
           {partial}
@@ -106,6 +114,9 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
+  },
+  language: {
+    textAlign: 'center',
   },
   partial: {
     fontStyle: 'italic',

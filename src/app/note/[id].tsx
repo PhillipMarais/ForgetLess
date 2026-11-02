@@ -236,6 +236,7 @@ function NoteEditor({
           onStart={dictation.start}
           onStop={dictation.stop}
           label="Speak to write"
+          languageName={dictation.languageName}
         />
         <TextInput
           value={body}
