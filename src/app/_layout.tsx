@@ -98,6 +98,9 @@ function ThemedNavigation() {
         <Stack.Screen name="event/[id]" options={{ title: 'Event' }} />
         <Stack.Screen name="task/[id]" options={{ title: 'Task' }} />
         <Stack.Screen name="settings" options={{ title: 'Settings' }} />
+        <Stack.Screen name="custom-theme" options={{ title: 'Custom theme' }} />
+        <Stack.Screen name="category/[id]" options={{ title: 'Folder' }} />
+        <Stack.Screen name="category-editor/[id]" options={{ title: 'Folder' }} />
       </Stack>
     </ThemeProvider>
   );

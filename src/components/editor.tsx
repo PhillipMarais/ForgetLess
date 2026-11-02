@@ -2,6 +2,7 @@ import { router, type Href } from 'expo-router';
 import type { PropsWithChildren } from 'react';
 import { Pressable, StyleSheet } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -12,11 +13,12 @@ export const KEYBOARD_GAP = 120;
 
 /** Scrollable, centered column for an edit screen; keeps the focused field above the keyboard. */
 export function EditorLayout({ children }: PropsWithChildren) {
+  const insets = useSafeAreaInsets();
   return (
     <ThemedView style={styles.container}>
       <KeyboardAwareScrollView
         bottomOffset={KEYBOARD_GAP}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingBottom: Spacing.four + insets.bottom }]}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="interactive">
         {children}
@@ -43,7 +45,7 @@ export function HeaderTextButton({
       onPress={onPress}
       hitSlop={Spacing.two}
       style={({ pressed }) => [styles.headerButton, (pressed || disabled) && styles.dimmed]}>
-      <ThemedText type="smallBold" themeColor="accent" style={styles.headerButtonText}>
+      <ThemedText type="smallBold" themeColor="accentText" style={styles.headerButtonText}>
         {label}
       </ThemedText>
     </Pressable>

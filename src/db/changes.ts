@@ -6,6 +6,7 @@ export type Table =
   | 'events'
   | 'tasks'
   | 'notes'
+  | 'note_categories'
   | 'attachments'
   | 'reminders'
   | 'occurrence_exceptions';

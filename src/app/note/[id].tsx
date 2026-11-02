@@ -3,7 +3,9 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ChipGroup } from '@/components/chip';
 import { ChoiceDialog, ConfirmDialog } from '@/components/choice-dialog';
 import { HeaderTextButton, KEYBOARD_GAP, leaveEditor } from '@/components/editor';
 import { EmptyState } from '@/components/empty-state';
@@ -14,14 +16,17 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { fontStyle, MaxContentWidth, Spacing } from '@/constants/theme';
 import { listAttachments, type Attachment } from '@/db/attachments';
+import { listCategories } from '@/db/categories';
 import { createNote, deleteNote, getNote, updateNote, type Note } from '@/db/notes';
+import { useLiveQuery } from '@/db/use-live-query';
 import { useDraftPhotos } from '@/hooks/use-draft-photos';
 import { useAppTheme } from '@/hooks/use-theme';
 
 type Loaded = { note: Note | null; attachments: Attachment[] };
 
 export default function NoteScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  // `category` pre-selects a folder for a new note (from a folder's + button).
+  const { id, category } = useLocalSearchParams<{ id: string; category?: string }>();
   const db = useSQLiteContext();
   const isNew = id === 'new';
   const [loaded, setLoaded] = useState<Loaded | null | undefined>(
@@ -49,31 +54,40 @@ export default function NoteScreen() {
       </ThemedView>
     );
   }
-  return <NoteEditor key={id} {...loaded} />;
+  return <NoteEditor key={id} {...loaded} newNoteCategory={category ?? null} />;
 }
 
 /**
  * Notes save only when you tap Save. Leaving with unsaved changes asks whether to save
  * or discard them; a new note that is never saved is never created.
  */
-function NoteEditor({ note, attachments }: Loaded) {
+function NoteEditor({
+  note,
+  attachments,
+  newNoteCategory,
+}: Loaded & { newNoteCategory: string | null }) {
   const db = useSQLiteContext();
   const theme = useAppTheme();
   const { colors } = theme;
   const [title, setTitle] = useState(note?.title ?? '');
   const [body, setBody] = useState(note?.body ?? '');
   const [pinned, setPinned] = useState(note?.pinned ?? false);
+  const initialCategory = note ? note.categoryId : newNoteCategory;
+  const [categoryId, setCategoryId] = useState(initialCategory);
+  const { data: categories = [] } = useLiveQuery(['note_categories'], 'folders', listCategories);
   const photos = useDraftPhotos(attachments);
   const [saving, setSaving] = useState(false);
   const [leaving, setLeaving] = useState(false);
   const [dialog, setDialog] = useState<'leave' | 'delete' | null>(null);
   const blockedLeave = useRef<(() => void) | null>(null);
+  const insets = useSafeAreaInsets();
 
   const empty = !title.trim() && !body.trim() && photos.photos.length === 0;
   const changed =
     title !== (note?.title ?? '') ||
     body !== (note?.body ?? '') ||
     pinned !== (note?.pinned ?? false) ||
+    categoryId !== initialCategory ||
     photos.changed;
   // An empty new note has nothing worth keeping, so leaving it needs no question.
   const dirty = changed && !(note === null && empty);
@@ -96,7 +110,7 @@ function NoteEditor({ note, attachments }: Loaded) {
   const save = async () => {
     setDialog(null);
     setSaving(true);
-    const input = { title, body, pinned };
+    const input = { title, body, pinned, categoryId };
     const noteId = note ? note.id : await createNote(db, input);
     if (note) await updateNote(db, note.id, input);
     await photos.save(db, 'note', noteId);
@@ -124,7 +138,7 @@ function NoteEditor({ note, attachments }: Loaded) {
               <IconButton
                 icon={Icons.pin}
                 label={pinned ? 'Unpin note' : 'Pin note'}
-                color={pinned ? 'accent' : 'textSecondary'}
+                color={pinned ? 'accentText' : 'textSecondary'}
                 onPress={() => setPinned(!pinned)}
               />
               <HeaderTextButton label="Save" onPress={save} disabled={!canSave} />
@@ -134,7 +148,7 @@ function NoteEditor({ note, attachments }: Loaded) {
       />
       <KeyboardAwareScrollView
         bottomOffset={KEYBOARD_GAP}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingBottom: Spacing.four + insets.bottom }]}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="interactive">
         {dirty ? (
@@ -154,6 +168,17 @@ function NoteEditor({ note, attachments }: Loaded) {
           autoFocus={note === null}
           style={[styles.title, fontStyle(theme, 'display', 600), { color: colors.text }]}
         />
+        {categories.length > 0 ? (
+          <ChipGroup
+            label="Folder"
+            options={[
+              { label: 'No folder', value: null },
+              ...categories.map((folder) => ({ label: folder.name, value: folder.id as string | null })),
+            ]}
+            value={categoryId}
+            onChange={setCategoryId}
+          />
+        ) : null}
         <PhotoStrip draft={photos} />
         <TextInput
           value={body}

@@ -1,5 +1,7 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
+import { DEFAULT_CUSTOM_COLORS, sanitizeCustomColors, type CustomColors } from '@/lib/custom-theme';
+
 import { now } from './ids';
 
 /** Every user setting, with its default. Add new settings here. */
@@ -12,10 +14,30 @@ export const DEFAULT_SETTINGS = {
    */
   blockRepeatsUntilDone: true,
   calendarView: 'month' as CalendarView,
+  /** Colours for the Custom theme. */
+  customColors: DEFAULT_CUSTOM_COLORS as CustomColors,
 };
 
-export type ThemeSetting = 'system' | 'light' | 'dark' | 'original';
+export type ThemeSetting = 'system' | 'light' | 'dark' | 'custom';
 export type CalendarView = 'day' | 'week' | 'month';
+
+const THEME_SETTINGS: readonly string[] = ['system', 'light', 'dark', 'custom'];
+const CALENDAR_VIEWS: readonly string[] = ['day', 'week', 'month'];
+
+/**
+ * Checks a stored value and upgrades old ones; returns undefined to fall back to the default.
+ * 'original' was the name of today's Dark theme before 2026-11-02.
+ */
+function normalize(key: SettingKey, value: unknown): unknown {
+  if (key === 'theme') {
+    if (value === 'original') return 'dark';
+    return THEME_SETTINGS.includes(value as string) ? value : undefined;
+  }
+  if (key === 'calendarView') return CALENDAR_VIEWS.includes(value as string) ? value : undefined;
+  if (key === 'customColors') return value && typeof value === 'object' ? sanitizeCustomColors(value) : undefined;
+  return typeof value === typeof DEFAULT_SETTINGS[key] ? value : undefined;
+}
+
 export type Settings = typeof DEFAULT_SETTINGS;
 export type SettingKey = keyof Settings;
 
@@ -26,11 +48,9 @@ export async function loadSettings(db: SQLiteDatabase): Promise<Settings> {
   for (const row of rows) {
     if (!(row.key in DEFAULT_SETTINGS)) continue;
     try {
-      const value: unknown = JSON.parse(row.value);
       const key = row.key as SettingKey;
-      if (typeof value === typeof DEFAULT_SETTINGS[key]) {
-        (settings as Record<SettingKey, unknown>)[key] = value;
-      }
+      const value = normalize(key, JSON.parse(row.value));
+      if (value !== undefined) (settings as Record<SettingKey, unknown>)[key] = value;
     } catch {
       // Ignore a corrupt value; the default applies.
     }

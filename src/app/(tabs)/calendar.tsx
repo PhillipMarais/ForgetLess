@@ -28,6 +28,7 @@ import {
   formatWeekRange,
   monthGridDays,
   startOfDay,
+  startOfMonth,
   startOfWeek,
   weekDays,
 } from '@/lib/dates';
@@ -54,11 +55,25 @@ function daysTouched(occurrence: EventOccurrence, from: number, to: number) {
 
 type DayItems = { events: EventOccurrence[]; tasks: Task[] };
 
+/** Start of the month, week or day containing `day`: what changes when the user pages. */
+function periodStart(view: CalendarView, day: number) {
+  if (view === 'month') return startOfMonth(day);
+  if (view === 'week') return startOfWeek(day);
+  return startOfDay(day);
+}
+
 export default function CalendarScreen() {
   const { settings, setSetting } = useSettings();
   const view = settings.calendarView;
   const { wide } = useLayout();
   const [selectedDay, setSelectedDay] = useState(() => startOfDay());
+  // Which way the period last changed, so the new one slides in from that side.
+  const [direction, setDirection] = useState<-1 | 0 | 1>(0);
+
+  const goTo = (day: number) => {
+    setDirection(Math.sign(periodStart(view, day) - periodStart(view, selectedDay)) as -1 | 0 | 1);
+    setSelectedDay(day);
+  };
 
   // Month view loads the whole 6-week grid; day and week views load the week (for the strip).
   const grid = monthGridDays(selectedDay);
@@ -90,11 +105,11 @@ export default function CalendarScreen() {
     };
   };
 
-  const step = (direction: -1 | 1) =>
-    setSelectedDay((day) =>
+  const step = (by: -1 | 1) =>
+    goTo(
       view === 'month'
-        ? addMonths(day, direction)
-        : addDays(day, view === 'week' ? 7 * direction : direction),
+        ? addMonths(selectedDay, by)
+        : addDays(selectedDay, view === 'week' ? 7 * by : by),
     );
 
   const addEvent = () =>
@@ -107,12 +122,13 @@ export default function CalendarScreen() {
       title={title}
       subtitle={subtitle}
       fullWidth={wide}
+      titleDirection={direction}
       action={
         <View style={styles.actions}>
           <IconButton
             icon={Icons.today}
             label="Go to today"
-            onPress={() => setSelectedDay(startOfDay())}
+            onPress={() => goTo(startOfDay())}
           />
           <IconButton icon={Icons.previous} label={`Previous ${view}`} onPress={() => step(-1)} />
           <IconButton icon={Icons.next} label={`Next ${view}`} onPress={() => step(1)} />
@@ -124,14 +140,20 @@ export default function CalendarScreen() {
           label="Calendar view"
           options={VIEWS}
           value={view}
-          onChange={(value) => setSetting('calendarView', value)}
+          onChange={(value) => {
+            setDirection(0);
+            setSetting('calendarView', value);
+          }}
         />
       </View>
-      <SwipePager onSwipe={step}>
+      <SwipePager
+        onSwipe={step}
+        pageKey={`${view}:${periodStart(view, selectedDay)}`}
+        direction={direction}>
         {view === 'month' ? (
           <MonthView
             day={selectedDay}
-            onSelectDay={setSelectedDay}
+            onSelectDay={goTo}
             busyDays={busyDays}
             items={itemsOn(selectedDay)}
             loaded={data !== undefined}
@@ -145,6 +167,7 @@ export default function CalendarScreen() {
             itemsOn={itemsOn}
             loaded={data !== undefined}
             onOpenDay={(day) => {
+              setDirection(0);
               setSelectedDay(day);
               setSetting('calendarView', 'day');
             }}
@@ -153,7 +176,7 @@ export default function CalendarScreen() {
         {view === 'day' ? (
           <DayView
             day={selectedDay}
-            onSelectDay={setSelectedDay}
+            onSelectDay={goTo}
             busyDays={busyDays}
             items={itemsOn(selectedDay)}
           />
@@ -287,7 +310,7 @@ function DayAgenda({ day, items, loaded, compact }: DayAgendaProps) {
   const isToday = day === startOfDay();
   return (
     <View>
-      <ThemedText type="label" themeColor={isToday ? 'accent' : undefined} style={styles.dayTitle}>
+      <ThemedText type="label" themeColor={isToday ? 'accentText' : undefined} style={styles.dayTitle}>
         {compact ? formatShortDay(day) : formatLongDate(day)}
         {isToday ? ' · Today' : ''}
       </ThemedText>

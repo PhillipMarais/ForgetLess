@@ -2,7 +2,15 @@ import { migrate } from './migrations';
 import { createTestDatabase } from './testing/test-database';
 
 const SYNC_COLUMNS = ['id', 'created_at', 'updated_at', 'deleted_at'];
-const TABLES = ['events', 'tasks', 'notes', 'attachments', 'reminders', 'occurrence_exceptions'];
+const TABLES = [
+  'events',
+  'tasks',
+  'notes',
+  'note_categories',
+  'attachments',
+  'reminders',
+  'occurrence_exceptions',
+];
 
 async function userVersion(db: ReturnType<typeof createTestDatabase>) {
   const row = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');

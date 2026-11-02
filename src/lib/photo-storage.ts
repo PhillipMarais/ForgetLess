@@ -12,8 +12,11 @@ function photosDirectory() {
 }
 
 /** Compresses into a temporary file; nothing is kept until `storePhoto` is called. */
-export async function preparePhoto(image: PickedImage): Promise<PreparedPhoto> {
-  const result = await compressPhoto(image, { base64: false });
+export async function preparePhoto(
+  image: PickedImage,
+  { maxEdge }: { maxEdge?: number } = {},
+): Promise<PreparedPhoto> {
+  const result = await compressPhoto(image, { base64: false, maxEdge });
   return {
     uri: result.uri,
     width: result.width,

@@ -90,11 +90,11 @@ export function PhotoStrip({ draft }: { draft: DraftPhotos }) {
                     onPress={() => viewed && draft.makeCover(viewed.key)}
                     style={({ pressed }) => [
                       styles.coverButton,
-                      { borderColor: theme.accent },
+                      { borderColor: theme.accentText },
                       pressed && styles.dimmed,
                     ]}>
-                    <Icon name={Icons.star} size={16} color="accent" />
-                    <ThemedText type="smallBold" themeColor="accent">
+                    <Icon name={Icons.star} size={16} color="accentText" />
+                    <ThemedText type="smallBold" themeColor="accentText">
                       Make cover
                     </ThemedText>
                   </Pressable>

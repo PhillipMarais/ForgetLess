@@ -1,49 +1,67 @@
-import { Pressable, StyleSheet, Text, View, useColorScheme } from 'react-native';
+import { router } from 'expo-router';
+import { Pressable, StyleSheet, View, useColorScheme } from 'react-native';
 
 import { Icon, Icons } from '@/components/icon';
 import { SettingsGroup, SettingsPage } from '@/components/settings-row';
+import { ThemeSample } from '@/components/theme-sample';
 import { ThemedText } from '@/components/themed-text';
-import { fontStyle, Radius, Spacing, Themes, type Theme } from '@/constants/theme';
+import { Radius, Spacing, Themes, type Theme } from '@/constants/theme';
 import type { ThemeSetting } from '@/db/settings';
 import { useSettings } from '@/hooks/use-settings';
 import { useTheme } from '@/hooks/use-theme';
+import { buildCustomTheme } from '@/lib/custom-theme';
 
 const OPTIONS: { value: ThemeSetting; title: string; description: string }[] = [
-  { value: 'system', title: 'Match phone', description: 'Light or dark, following your phone.' },
-  { value: 'light', title: 'Light', description: 'Bright and clean.' },
-  { value: 'dark', title: 'Dark', description: 'Easy on the eyes at night.' },
-  { value: 'original', title: 'Original', description: 'Near-black with signal orange.' },
+  { value: 'system', title: 'Match phone', description: 'Light or Dark, following your phone.' },
+  { value: 'light', title: 'Light', description: 'Warm paper with signal orange.' },
+  { value: 'dark', title: 'Dark', description: 'Near-black with signal orange.' },
+  { value: 'custom', title: 'Custom', description: 'Your own colours.' },
 ];
 
 export default function ThemeSettingsScreen() {
   const { settings, setSetting } = useSettings();
   const scheme = useColorScheme();
+  const colors = useTheme();
+
+  const previewFor = (value: ThemeSetting): Theme => {
+    if (value === 'custom') return buildCustomTheme(settings.customColors);
+    if (value === 'system') return Themes[scheme === 'dark' ? 'dark' : 'light'];
+    return Themes[value];
+  };
 
   return (
     <SettingsPage>
       <SettingsGroup label="Theme">
         <View style={styles.grid} accessibilityRole="radiogroup" accessibilityLabel="Theme">
-          {OPTIONS.map((option) => {
-            const preview =
-              option.value === 'system'
-                ? Themes[scheme === 'dark' ? 'dark' : 'light']
-                : Themes[option.value];
-            return (
-              <ThemeCard
-                key={option.value}
-                title={option.title}
-                description={option.description}
-                preview={preview}
-                selected={settings.theme === option.value}
-                onPress={() => setSetting('theme', option.value)}
-              />
-            );
-          })}
+          {OPTIONS.map((option) => (
+            <ThemeCard
+              key={option.value}
+              title={option.title}
+              description={option.description}
+              preview={previewFor(option.value)}
+              selected={settings.theme === option.value}
+              onPress={() => setSetting('theme', option.value)}
+            />
+          ))}
         </View>
       </SettingsGroup>
-      <ThemedText type="small" themeColor="textSecondary" style={styles.footnote}>
-        Custom themes, where you pick each colour yourself, are coming later.
-      </ThemedText>
+      <Pressable
+        accessibilityRole="button"
+        onPress={() => router.push('/custom-theme')}
+        style={({ pressed }) => [
+          styles.editButton,
+          { backgroundColor: colors.backgroundElement },
+          pressed && styles.pressed,
+        ]}>
+        <Icon name={Icons.theme} size={22} color="accentText" />
+        <View style={styles.editText}>
+          <ThemedText type="defaultBold">Edit custom colours</ThemedText>
+          <ThemedText type="small" themeColor="textSecondary">
+            Pick the colour of the background, text, buttons and more.
+          </ThemedText>
+        </View>
+        <Icon name={Icons.next} size={22} color="textSecondary" />
+      </Pressable>
     </SettingsPage>
   );
 }
@@ -57,9 +75,7 @@ type ThemeCardProps = {
 };
 
 function ThemeCard({ title, description, preview, selected, onPress }: ThemeCardProps) {
-  const theme = useTheme();
-  const p = preview.colors;
-
+  const colors = useTheme();
   return (
     <Pressable
       accessibilityRole="radio"
@@ -68,29 +84,16 @@ function ThemeCard({ title, description, preview, selected, onPress }: ThemeCard
       onPress={onPress}
       style={({ pressed }) => [
         styles.card,
-        { borderColor: selected ? theme.accent : theme.border },
+        { borderColor: selected ? colors.accent : colors.border },
         pressed && styles.pressed,
       ]}>
-      {/* A miniature screen drawn in the previewed theme's own colours and fonts. */}
-      <View style={[styles.preview, { backgroundColor: p.background }]}>
-        <View style={[styles.previewGlow, { backgroundColor: p.glow }]} />
-        <Text style={[fontStyle(preview, 'mono', 500), styles.previewLabel, { color: p.label }]}>
-          TODAY
-        </Text>
-        <Text style={[fontStyle(preview, 'display', 700), styles.previewTitle, { color: p.text }]}>
-          Aa
-        </Text>
-        <View style={[styles.previewCard, { backgroundColor: p.backgroundElement }]}>
-          <View style={[styles.previewDot, { backgroundColor: p.accent }]} />
-          <View style={[styles.previewLine, { backgroundColor: p.textSecondary }]} />
-        </View>
-      </View>
+      <ThemeSample theme={preview} compact />
       <View style={styles.cardText}>
         <View style={styles.titleRow}>
-          <ThemedText type="defaultBold" style={styles.cardTitle}>
+          <ThemedText type="defaultBold" style={styles.flex}>
             {title}
           </ThemedText>
-          {selected ? <Icon name={Icons.check} size={18} color="accent" /> : null}
+          {selected ? <Icon name={Icons.check} size={18} color="accentText" /> : null}
         </View>
         <ThemedText type="small" themeColor="textSecondary">
           {description}
@@ -118,46 +121,6 @@ const styles = StyleSheet.create({
   pressed: {
     opacity: 0.8,
   },
-  preview: {
-    height: 104,
-    padding: Spacing.two,
-    gap: Spacing.half,
-    overflow: 'hidden',
-  },
-  previewGlow: {
-    position: 'absolute',
-    top: -40,
-    left: -20,
-    width: 140,
-    height: 100,
-    borderRadius: 70,
-  },
-  previewLabel: {
-    fontSize: 9,
-    letterSpacing: 1,
-  },
-  previewTitle: {
-    fontSize: 22,
-    lineHeight: 26,
-  },
-  previewCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.two,
-    borderRadius: Radius.small,
-    padding: Spacing.two,
-  },
-  previewDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-  },
-  previewLine: {
-    flex: 1,
-    height: 4,
-    borderRadius: 2,
-    opacity: 0.6,
-  },
   cardText: {
     padding: Spacing.three,
     gap: Spacing.half,
@@ -166,10 +129,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  cardTitle: {
+  flex: {
     flex: 1,
   },
-  footnote: {
-    paddingHorizontal: Spacing.one,
+  editButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.three,
+    borderRadius: Radius.large,
+    padding: Spacing.three,
+  },
+  editText: {
+    flex: 1,
+    gap: Spacing.half,
   },
 });

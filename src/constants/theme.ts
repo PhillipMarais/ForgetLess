@@ -7,7 +7,7 @@ import '@/global.css';
 
 import { Platform, type TextStyle } from 'react-native';
 
-export type ThemeName = 'light' | 'dark' | 'original';
+export type ThemeName = 'light' | 'dark' | 'custom';
 
 export type ColorTokens = {
   text: string;
@@ -18,9 +18,12 @@ export type ColorTokens = {
   /** Pressed / selected elements. */
   backgroundSelected: string;
   border: string;
+  /** Fills: buttons, selected chips, checkboxes, indicators. */
   accent: string;
   /** Text and icons drawn on top of `accent`. */
   onAccent: string;
+  /** Accent-coloured text and small icons on `background`; darker than `accent` on light themes. */
+  accentText: string;
   danger: string;
   /** Small uppercase section labels. */
   label: string;
@@ -44,36 +47,26 @@ export type Theme = {
   fonts: FontFamilies | null;
 };
 
+/**
+ * Light and Dark are the two looks of phillipmarais.github.io (src/styles.css there):
+ * warm paper or near-black, ink, and signal orange.
+ */
 const LIGHT: ColorTokens = {
-  text: '#111113',
-  textSecondary: '#60646C',
-  background: '#FFFFFF',
-  backgroundElement: '#F2F2F5',
-  backgroundSelected: '#E4E5EA',
-  border: '#E0E1E6',
-  accent: '#1E7CE8',
-  onAccent: '#FFFFFF',
-  danger: '#D93D42',
-  label: '#60646C',
-  glow: 'transparent',
+  text: '#141414',
+  textSecondary: '#57534D',
+  background: '#F7F5F2',
+  backgroundElement: '#FFFFFF',
+  backgroundSelected: '#EDE7DF',
+  border: '#E4DDD4',
+  accent: '#FF6A13',
+  onAccent: '#141414',
+  accentText: '#B54A00',
+  danger: '#C4282F',
+  label: '#B54A00',
+  glow: 'rgba(255, 106, 19, 0.10)',
 };
 
 const DARK: ColorTokens = {
-  text: '#F4F4F5',
-  textSecondary: '#A1A1AA',
-  background: '#0F0F10',
-  backgroundElement: '#1C1C1F',
-  backgroundSelected: '#2A2B30',
-  border: '#2E2F34',
-  accent: '#4FA3F7',
-  onAccent: '#0F0F10',
-  danger: '#FF6369',
-  label: '#A1A1AA',
-  glow: 'transparent',
-};
-
-/** The dark look of phillipmarais.github.io: near-black, warm off-white, signal orange. */
-const ORIGINAL: ColorTokens = {
   text: '#F2EFEA',
   textSecondary: '#A8A39C',
   background: '#0D0D0E',
@@ -82,12 +75,16 @@ const ORIGINAL: ColorTokens = {
   border: '#2A2724',
   accent: '#FF6A13',
   onAccent: '#141414',
+  accentText: '#FF8A3D',
   danger: '#FF4D5E',
   label: '#FF8A3D',
   glow: 'rgba(255, 106, 19, 0.14)',
 };
 
-const ORIGINAL_FONTS: FontFamilies = {
+export const LIGHT_COLORS = LIGHT;
+export const DARK_COLORS = DARK;
+
+const BRAND_FONTS: FontFamilies = {
   display: {
     400: 'ChakraPetch_500Medium',
     500: 'ChakraPetch_500Medium',
@@ -108,11 +105,15 @@ const ORIGINAL_FONTS: FontFamilies = {
   },
 };
 
-export const Themes: Record<ThemeName, Theme> = {
-  light: { name: 'light', label: 'Light', dark: false, colors: LIGHT, fonts: null },
-  dark: { name: 'dark', label: 'Dark', dark: true, colors: DARK, fonts: null },
-  original: { name: 'original', label: 'Original', dark: true, colors: ORIGINAL, fonts: ORIGINAL_FONTS },
+export const Themes: Record<'light' | 'dark', Theme> = {
+  light: { name: 'light', label: 'Light', dark: false, colors: LIGHT, fonts: BRAND_FONTS },
+  dark: { name: 'dark', label: 'Dark', dark: true, colors: DARK, fonts: BRAND_FONTS },
 };
+
+/** A theme from user-chosen colours (see lib/custom-theme for how the rest are derived). */
+export function makeTheme(colors: ColorTokens, dark: boolean): Theme {
+  return { name: 'custom', label: 'Custom', dark, colors, fonts: BRAND_FONTS };
+}
 
 const SYSTEM_FONTS: Record<FontRole, string | undefined> = {
   display: undefined,

@@ -36,7 +36,7 @@ export function ChoiceDialog<T>({ visible, title, choices, onChoose, onCancel }:
               <ChoiceButton
                 key={choice.label}
                 label={choice.label}
-                color={choice.destructive ? 'danger' : 'accent'}
+                color={choice.destructive ? 'danger' : 'accentText'}
                 disabled={choice.disabled}
                 onPress={() => onChoose(choice.value)}
               />
@@ -87,7 +87,7 @@ function ChoiceButton({
   onPress,
 }: {
   label: string;
-  color: 'accent' | 'danger' | 'textSecondary';
+  color: 'accentText' | 'danger' | 'textSecondary';
   disabled?: boolean;
   onPress: () => void;
 }) {

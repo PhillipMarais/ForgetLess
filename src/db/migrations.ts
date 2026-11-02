@@ -116,6 +116,21 @@ const MIGRATIONS: readonly string[] = [
   ALTER TABLE attachments ADD COLUMN sort_order REAL NOT NULL DEFAULT 0;
   UPDATE attachments SET sort_order = created_at;
   `,
+  // 3: note folders ("categories"), each with an optional icon picture
+  `
+  CREATE TABLE note_categories (
+    id TEXT PRIMARY KEY NOT NULL,
+    name TEXT NOT NULL,
+    icon_uri TEXT,
+    sort_order REAL NOT NULL DEFAULT 0,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    deleted_at INTEGER
+  );
+
+  ALTER TABLE notes ADD COLUMN category_id TEXT;
+  CREATE INDEX notes_category_id ON notes (category_id) WHERE deleted_at IS NULL;
+  `,
 ];
 
 export async function migrate(db: SQLiteDatabase) {

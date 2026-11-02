@@ -11,7 +11,7 @@ import {
 } from '@/db/attachments';
 import { newId } from '@/db/ids';
 
-import type { PickedImage, PreparedPhoto } from './photo-compress';
+import { ICON_EDGE, type PickedImage, type PreparedPhoto } from './photo-compress';
 import { deletePhotoFile, preparePhoto, storePhoto } from './photo-storage';
 
 /**
@@ -100,4 +100,10 @@ export async function purgeDeletedPhotos(db: SQLiteDatabase) {
   const uris = await listDeletedAttachmentUris(db);
   for (const uri of uris) deletePhotoFile(uri);
   await clearDeletedAttachmentUris(db, uris);
+}
+
+/** Stores a picked picture as a small folder icon and returns its URI. */
+export async function storeIcon(image: PickedImage): Promise<string> {
+  const prepared = await preparePhoto(image, { maxEdge: ICON_EDGE });
+  return storePhoto(prepared, `icon-${newId()}`);
 }

@@ -16,16 +16,21 @@ export type PreparedPhoto = {
   byteSize: number | null;
 };
 
-/** The resize to apply so the longest edge is at most MAX_PHOTO_EDGE, or null if it already fits. */
-export function resizeToFit(width: number, height: number) {
-  if (Math.max(width, height) <= MAX_PHOTO_EDGE) return null;
-  return width >= height ? { width: MAX_PHOTO_EDGE } : { height: MAX_PHOTO_EDGE };
+/** The resize to apply so the longest edge is at most `maxEdge`, or null if it already fits. */
+export function resizeToFit(width: number, height: number, maxEdge = MAX_PHOTO_EDGE) {
+  if (Math.max(width, height) <= maxEdge) return null;
+  return width >= height ? { width: maxEdge } : { height: maxEdge };
 }
 
+/** Longest edge for small pictures such as folder icons. */
+export const ICON_EDGE = 384;
+
+export type CompressOptions = { base64: boolean; maxEdge?: number };
+
 /** Downscales and re-encodes as JPEG. Also strips location and other EXIF data. */
-export async function compressPhoto(image: PickedImage, { base64 }: { base64: boolean }) {
+export async function compressPhoto(image: PickedImage, { base64, maxEdge }: CompressOptions) {
   const context = ImageManipulator.manipulate(image.uri);
-  const size = resizeToFit(image.width, image.height);
+  const size = resizeToFit(image.width, image.height, maxEdge);
   if (size) context.resize(size);
   const rendered = await context.renderAsync();
   try {
