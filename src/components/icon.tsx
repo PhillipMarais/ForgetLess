@@ -1,0 +1,40 @@
+import { SymbolView, type SFSymbol } from 'expo-symbols';
+import type { ComponentProps } from 'react';
+
+import type { ThemeColor } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
+
+type AndroidSymbol = NonNullable<
+  Extract<ComponentProps<typeof SymbolView>['name'], { android?: unknown }>['android']
+>;
+
+/** One icon across platforms: an SF Symbol on iOS, a Material Symbol on Android and web. */
+export type IconName = { ios: SFSymbol; material: AndroidSymbol };
+
+type IconProps = {
+  name: IconName;
+  size?: number;
+  color?: ThemeColor;
+};
+
+export function Icon({ name, size = 24, color = 'text' }: IconProps) {
+  const theme = useTheme();
+  return (
+    <SymbolView
+      name={{ ios: name.ios, android: name.material, web: name.material }}
+      size={size}
+      tintColor={theme[color]}
+    />
+  );
+}
+
+export const Icons = {
+  add: { ios: 'plus', material: 'add' },
+  delete: { ios: 'trash', material: 'delete' },
+  check: { ios: 'checkmark', material: 'check' },
+  pin: { ios: 'pin', material: 'push_pin' },
+  today: { ios: 'sun.max', material: 'today' },
+  calendar: { ios: 'calendar', material: 'calendar_month' },
+  tasks: { ios: 'checklist', material: 'checklist' },
+  notes: { ios: 'note.text', material: 'sticky_note_2' },
+} as const satisfies Record<string, IconName>;
