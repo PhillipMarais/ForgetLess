@@ -51,7 +51,7 @@
         {
           "photosPermission": "ForgetLess uses your photos when you attach a picture to a task, event or note.",
           "cameraPermission": "ForgetLess uses the camera when you take a picture for a task, event or note.",
-          "microphonePermission": false
+          "microphonePermission": "ForgetLess uses the microphone when you speak a note."
         }
       ],
       [
