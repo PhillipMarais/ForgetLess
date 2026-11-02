@@ -19,9 +19,18 @@ npx expo lint               # lint
 npx tsc --noEmit            # typecheck
 npx expo-doctor             # diagnose dependency and config issues
 npx expo install --fix      # fix incompatible package versions
+npm test                    # unit tests (Jest via jest-expo)
+npm run check               # typecheck + lint + tests
 ```
 
-Run lint and typecheck before declaring any task done.
+Run `npm run check` before declaring any task done.
+
+## Testing
+
+- Jest with the `jest-expo` preset and `@testing-library/react-native`. Test files sit next to the code as `*.test.ts(x)`; never put them in `src/app/` (every file there becomes a route).
+- In React Native Testing Library v14, `render` and `fireEvent.*` return promises; always `await` them.
+- Database code is tested against real SQLite: `createMigratedTestDatabase()` in `src/db/testing/` runs the app's migrations on an in-memory `node:sqlite` database behind expo-sqlite's async API. Prefer it over mocking queries.
+- Variables used inside a `jest.mock()` factory must be named with a `mock` prefix.
 
 ## Navigation & Routing
 
