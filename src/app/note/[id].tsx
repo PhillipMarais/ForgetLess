@@ -25,20 +25,12 @@ import { useDraftDocuments } from '@/hooks/use-draft-documents';
 import { appendSentence, useDictation } from '@/hooks/use-dictation';
 import { useDraftPhotos } from '@/hooks/use-draft-photos';
 import { useAppTheme, useFontSize } from '@/hooks/use-theme';
-import { voiceNoteTitle } from '@/lib/dates';
-import { ForgetlessDevice } from '@/lib/device';
 
 type Loaded = { note: Note | null; attachments: Attachment[]; documents: Attachment[] };
 
 export default function NoteScreen() {
   // `category` pre-selects a category for a new note (from a category's + button).
-  // `voice` starts a spoken note (from the Voice note widget, `from=widget`).
-  const { id, category, voice, from } = useLocalSearchParams<{
-    id: string;
-    category?: string;
-    voice?: string;
-    from?: string;
-  }>();
+  const { id, category } = useLocalSearchParams<{ id: string; category?: string }>();
   const db = useSQLiteContext();
   const isNew = id === 'new';
   const [loaded, setLoaded] = useState<Loaded | null | undefined>(
@@ -72,8 +64,6 @@ export default function NoteScreen() {
       key={id}
       {...loaded}
       newNoteCategory={category ?? null}
-      voice={isNew && voice === '1'}
-      fromWidget={from === 'widget'}
     />
   );
 }
@@ -87,25 +77,16 @@ function NoteEditor({
   attachments,
   documents,
   newNoteCategory,
-  voice,
-  fromWidget,
-}: Loaded & { newNoteCategory: string | null; voice: boolean; fromWidget: boolean }) {
+}: Loaded & { newNoteCategory: string | null }) {
   const db = useSQLiteContext();
   const theme = useAppTheme();
   const { colors } = theme;
   const titleSize = useFontSize(24);
   const bodySize = useFontSize(16);
-  // A voice note is titled with the date and time until you tap the title to type your own.
-  const [defaultTitle] = useState(() => (voice ? voiceNoteTitle() : ''));
-  const [title, setTitle] = useState(note?.title ?? defaultTitle);
+  const [title, setTitle] = useState(note?.title ?? '');
   const [body, setBody] = useState(note?.body ?? '');
   const dictation = useDictation((sentence) => setBody((current) => appendSentence(current, sentence)));
 
-  // Voice notes start listening straight away (after a ping).
-  useEffect(() => {
-    if (voice) dictation.start();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [voice]);
   const [pinned, setPinned] = useState(note?.pinned ?? false);
   const initialCategory = note ? note.categoryId : newNoteCategory;
   const [categoryId, setCategoryId] = useState(initialCategory);
@@ -119,7 +100,7 @@ function NoteEditor({
   const insets = useSafeAreaInsets();
 
   const empty =
-    !(title.trim() && title !== defaultTitle) &&
+    !title.trim() &&
     !body.trim() &&
     photos.photos.length === 0 &&
     files.documents.length === 0;
@@ -146,9 +127,7 @@ function NoteEditor({
     blockedLeave.current = null;
     if (resume) resume();
     else leaveEditor('/notes');
-    // Opened from the Voice note widget: go back to the home screen, like the widget closing.
-    if (fromWidget) ForgetlessDevice?.moveToBack();
-  }, [leaving, fromWidget]);
+  }, [leaving]);
 
   const save = async () => {
     setDialog(null);
@@ -177,7 +156,7 @@ function NoteEditor({
     <ThemedView style={styles.container}>
       <Stack.Screen
         options={{
-          title: note ? 'Note' : voice ? 'Voice note' : 'New note',
+          title: note ? 'Note' : 'New note',
           headerRight: () => (
             <View style={styles.headerActions}>
               <IconButton
@@ -210,10 +189,7 @@ function NoteEditor({
           placeholder="Title"
           placeholderTextColor={colors.textSecondary}
           accessibilityLabel="Note title"
-          autoFocus={note === null && !voice}
-          onFocus={() => {
-            if (defaultTitle && title === defaultTitle) setTitle('');
-          }}
+          autoFocus={note === null}
           style={[styles.title, fontStyle(theme, 'display', 600), { color: colors.text, fontSize: titleSize }]}
         />
         {categories.length > 0 ? (

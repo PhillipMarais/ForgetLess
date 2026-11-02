@@ -25,7 +25,7 @@ export const AppLinks = {
   notes: 'forgetless:///notes',
   newTask: 'forgetless:///task/new',
   newNote: 'forgetless:///note/new',
-  voiceNote: 'forgetless:///note/new?voice=1&from=widget',
+  voiceNote: 'forgetless:///voice-note?from=widget',
   task: (id: string) => `forgetless:///task/${id}`,
   note: (id: string) => `forgetless:///note/${id}`,
   event: (occurrence: EventOccurrence) =>

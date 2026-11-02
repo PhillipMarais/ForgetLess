@@ -16,6 +16,8 @@ export type Note = {
   coverUri: string | null;
   /** Attached PDFs. */
   documentCount: number;
+  /** Spoken as a voice note (Voice note widget or screen). */
+  voice: boolean;
   createdAt: number;
   updatedAt: number;
 };
@@ -29,6 +31,7 @@ type NoteRow = {
   attachment_count: number;
   cover_uri: string | null;
   document_count: number;
+  kind: string | null;
   created_at: number;
   updated_at: number;
 };
@@ -46,6 +49,7 @@ function toNote(row: NoteRow): Note {
     attachmentCount: row.attachment_count,
     coverUri: row.cover_uri,
     documentCount: row.document_count,
+    voice: row.kind === 'voice',
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -59,17 +63,26 @@ export async function listNotes(db: SQLiteDatabase): Promise<Note[]> {
 
 /**
  * The main notes list: pinned notes from every category, then the unpinned notes that are not
- * in a category. Categories sit between the two (see listCategories).
+ * in a category, split into voice notes and the rest. Categories sit before them (see
+ * listCategories).
  */
-export async function listMainNotes(db: SQLiteDatabase): Promise<{ pinned: Note[]; loose: Note[] }> {
+export async function listMainNotes(
+  db: SQLiteDatabase,
+): Promise<{ pinned: Note[]; voice: Note[]; loose: Note[] }> {
   const pinned = await db.getAllAsync<NoteRow>(
     `${SELECT_NOTES} WHERE deleted_at IS NULL AND pinned = 1 ORDER BY updated_at DESC`,
   );
-  const loose = await db.getAllAsync<NoteRow>(
-    `${SELECT_NOTES} WHERE deleted_at IS NULL AND pinned = 0 AND category_id IS NULL
-     ORDER BY updated_at DESC`,
-  );
-  return { pinned: pinned.map(toNote), loose: loose.map(toNote) };
+  const unfiled = (
+    await db.getAllAsync<NoteRow>(
+      `${SELECT_NOTES} WHERE deleted_at IS NULL AND pinned = 0 AND category_id IS NULL
+       ORDER BY updated_at DESC`,
+    )
+  ).map(toNote);
+  return {
+    pinned: pinned.map(toNote),
+    voice: unfiled.filter((note) => note.voice),
+    loose: unfiled.filter((note) => !note.voice),
+  };
 }
 
 /** The notes in one category, pinned first. */
@@ -109,6 +122,8 @@ export type NoteInput = {
   pinned?: boolean;
   /** A category id, or null for none; left out, the category is not changed. */
   categoryId?: string | null;
+  /** New notes only: spoken as a voice note. */
+  voice?: boolean;
 };
 
 export async function createNote(
@@ -118,13 +133,14 @@ export async function createNote(
   const id = newId();
   const timestamp = now();
   await db.runAsync(
-    `INSERT INTO notes (id, title, body, pinned, category_id, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO notes (id, title, body, pinned, category_id, kind, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     id,
     input.title,
     input.body,
     input.pinned ? 1 : 0,
     input.categoryId ?? null,
+    input.voice ? 'voice' : null,
     timestamp,
     timestamp,
   );

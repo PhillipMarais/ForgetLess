@@ -33,10 +33,11 @@ export default function NotesScreen() {
   }));
 
   const pinned = data?.pinned ?? [];
+  const voice = data?.voice ?? [];
   const loose = data?.loose ?? [];
   const categories = data?.categories ?? [];
   const categoryNames = new Map(categories.map((category) => [category.id, category.name]));
-  const empty = data && pinned.length + loose.length + categories.length === 0;
+  const empty = data && pinned.length + voice.length + loose.length + categories.length === 0;
 
   const noteGrid = (notes: Note[]) => (
     <CardGrid
@@ -64,6 +65,7 @@ export default function NotesScreen() {
       action={
         <View style={styles.actions}>
           <NewCategoryButton />
+          <IconButton icon={Icons.mic} label="New voice note" onPress={() => router.push('/voice-note')} />
           <IconButton
             icon={Icons.add}
             label="New note"
@@ -76,8 +78,8 @@ export default function NotesScreen() {
         {categorySelection.selecting ? (
           <CategorySelectionBar selection={categorySelection} />
         ) : selection.selecting ? (
-          <SelectionBar selection={selection} notes={[...pinned, ...loose]} categories={categories} />
-        ) : pinned.length + loose.length > 1 || categories.length > 1 ? (
+          <SelectionBar selection={selection} notes={[...pinned, ...voice, ...loose]} categories={categories} />
+        ) : pinned.length + voice.length + loose.length > 1 || categories.length > 1 ? (
           <ThemedText type="small" themeColor="textSecondary">
             Hold a note or category to select several.
           </ThemedText>
@@ -112,6 +114,7 @@ export default function NotesScreen() {
             />
           </Section>
         ) : null}
+        {voice.length > 0 ? <Section title="Voice notes">{noteGrid(voice)}</Section> : null}
         {loose.length > 0 ? (
           <Section title="Notes">
             {noteGrid(loose)}

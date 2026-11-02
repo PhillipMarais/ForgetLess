@@ -74,6 +74,8 @@ function ThemedNavigation() {
         }}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="note/[id]" options={{ title: 'Note' }} />
+        {/* No navigation header: it draws its own bar (see voice-note.tsx). */}
+        <Stack.Screen name="voice-note" options={{ headerShown: false, animation: 'slide_from_bottom' }} />
         <Stack.Screen name="event/[id]" options={{ title: 'Event' }} />
         <Stack.Screen name="task/[id]" options={{ title: 'Task' }} />
         <Stack.Screen name="settings" options={{ title: 'Settings' }} />

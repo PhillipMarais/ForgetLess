@@ -162,6 +162,10 @@ const MIGRATIONS: readonly string[] = [
     deleted_at INTEGER
   );
   `,
+  // 6: notes spoken as voice notes (kind 'voice'), listed in their own section
+  `
+  ALTER TABLE notes ADD COLUMN kind TEXT;
+  `,
 ];
 
 export async function migrate(db: SQLiteDatabase) {

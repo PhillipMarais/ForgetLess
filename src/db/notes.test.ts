@@ -5,6 +5,7 @@ import {
   deleteNote,
   deleteNotes,
   getNote,
+  listMainNotes,
   listNotes,
   setNotePinned,
   setNotesPinned,
@@ -78,4 +79,18 @@ it('pins and deletes several notes at once', async () => {
 
   await deleteNotes(db, [a, b]);
   expect((await listNotes(db)).map((n) => n.title)).toEqual(['C']);
+});
+
+it('lists voice notes in their own section, unless pinned', async () => {
+  await createNote(db, { title: 'Typed', body: 'a' });
+  const spoken = await createNote(db, { title: 'Spoken', body: 'b', voice: true });
+  let main = await listMainNotes(db);
+  expect(main.voice.map((note) => note.title)).toEqual(['Spoken']);
+  expect(main.loose.map((note) => note.title)).toEqual(['Typed']);
+  expect((await getNote(db, spoken))?.voice).toBe(true);
+
+  await setNotePinned(db, spoken, true);
+  main = await listMainNotes(db);
+  expect(main.voice).toEqual([]);
+  expect(main.pinned.map((note) => note.title)).toEqual(['Spoken']);
 });
