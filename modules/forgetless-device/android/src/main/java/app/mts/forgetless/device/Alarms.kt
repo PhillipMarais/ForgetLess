@@ -227,7 +227,7 @@ object Alarms {
       .setCategory(NotificationCompat.CATEGORY_ALARM)
       .setPriority(NotificationCompat.PRIORITY_MAX)
       .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-      .setColor(0xFFFF6A13.toInt())
+      .setColor(Appearance.load(context).accent)
       .setOngoing(true)
       .setAutoCancel(false)
       .setTimeoutAfter(RING_TIMEOUT_MS)

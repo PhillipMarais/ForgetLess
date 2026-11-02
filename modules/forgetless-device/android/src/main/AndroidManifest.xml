@@ -26,5 +26,22 @@
       android:launchMode="singleInstance"
       android:taskAffinity="app.mts.forgetless.alarm"
       android:theme="@android:style/Theme.DeviceDefault.NoActionBar" />
+    <!-- The widgets' quick-add popup (forgetless-quick://task, ://note, ://voice): a card over
+         the home screen in its own task, so adding something never brings the app up. -->
+    <activity
+      android:name="app.mts.forgetless.device.QuickAddActivity"
+      android:exported="true"
+      android:excludeFromRecents="true"
+      android:noHistory="true"
+      android:launchMode="singleTask"
+      android:taskAffinity="app.mts.forgetless.quickadd"
+      android:windowSoftInputMode="adjustResize"
+      android:theme="@android:style/Theme.Translucent.NoTitleBar">
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW" />
+        <category android:name="android.intent.category.DEFAULT" />
+        <data android:scheme="forgetless-quick" />
+      </intent-filter>
+    </activity>
   </application>
 </manifest>

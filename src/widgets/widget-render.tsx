@@ -74,7 +74,7 @@ function drawWidget(widget: WidgetData, colors: WidgetColors, size: Size) {
     case 'Calendar':
       return <CalendarWidget colors={colors} data={widget.data} width={size.width} height={size.height} />;
     default:
-      return <VoiceNoteWidget colors={colors} />;
+      return <VoiceNoteWidget colors={colors} width={size.width} />;
   }
 }
 

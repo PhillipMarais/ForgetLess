@@ -11,8 +11,11 @@ import { BRAND_FILES } from '@/constants/fonts';
 import { fontStyle } from '@/constants/theme';
 import { ToastHost } from '@/components/toast';
 import { DatabaseProvider } from '@/db/database-provider';
+import { useAlarmSync } from '@/hooks/use-alarm-sync';
+import { useNativeSync } from '@/hooks/use-native-sync';
 import { SettingsProvider } from '@/hooks/use-settings';
 import { AppThemeProvider, useAppTheme } from '@/hooks/use-theme';
+import { useWidgetSync } from '@/widgets/widget-sync';
 
 // Kept up until the database, settings and fonts are ready, so the theme never flashes.
 SplashScreen.preventAutoHideAsync();
@@ -42,6 +45,11 @@ type NavigationTheme = ComponentProps<typeof ThemeProvider>['value'];
 function ThemedNavigation() {
   const theme = useAppTheme();
   const { colors } = theme;
+  // Alarms, widgets and the Android side stay in step with the data and theme, whichever
+  // screen is open (widgets can open screens outside the tabs).
+  useAlarmSync();
+  useWidgetSync();
+  useNativeSync();
 
   useEffect(() => {
     SplashScreen.hideAsync();

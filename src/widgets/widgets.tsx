@@ -23,9 +23,10 @@ export const AppLinks = {
   calendar: 'forgetless:///calendar',
   tasks: 'forgetless:///tasks',
   notes: 'forgetless:///notes',
-  newTask: 'forgetless:///task/new',
-  newNote: 'forgetless:///note/new',
-  voiceNote: 'forgetless:///voice-note?from=widget',
+  // Quick-add popups over the home screen (QuickAddActivity in modules/forgetless-device).
+  newTask: 'forgetless-quick://task',
+  newNote: 'forgetless-quick://note',
+  voiceNote: 'forgetless-quick://voice',
   task: (id: string) => `forgetless:///task/${id}`,
   note: (id: string) => `forgetless:///note/${id}`,
   event: (occurrence: EventOccurrence) =>
@@ -424,7 +425,9 @@ export function CalendarWidget({
 
 // --- Voice note ----------------------------------------------------------------------------
 
-export function VoiceNoteWidget({ colors }: { colors: WidgetColors }) {
+export function VoiceNoteWidget({ colors, width }: { colors: WidgetColors; width: number }) {
+  // Shrunk to one cell, it is just the microphone.
+  const iconOnly = width < 120;
   return (
     <FlexWidget
       {...open(AppLinks.voiceNote)}
@@ -439,12 +442,17 @@ export function VoiceNoteWidget({ colors }: { colors: WidgetColors }) {
         borderRadius: RADIUS,
         paddingHorizontal: 12,
       }}>
-      <SvgWidget svg={WidgetIcons.mic(colors.onAccent)} style={{ width: 26, height: 26, marginRight: 8 }} />
-      <TextWidget
-        text="Voice note"
-        maxLines={1}
-        style={{ fontSize: 16, fontFamily: WidgetFonts.display, color: colors.onAccent }}
+      <SvgWidget
+        svg={WidgetIcons.mic(colors.onAccent)}
+        style={{ width: 26, height: 26, marginRight: iconOnly ? 0 : 8 }}
       />
+      {iconOnly ? null : (
+        <TextWidget
+          text="Voice note"
+          maxLines={1}
+          style={{ fontSize: 16, fontFamily: WidgetFonts.display, color: colors.onAccent }}
+        />
+      )}
     </FlexWidget>
   );
 }

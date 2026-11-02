@@ -120,6 +120,11 @@ class ForgetlessDeviceModule : Module() {
       preview = null
     }
 
+    /** The app's theme colours, for the alarm screen and the quick-add popups. */
+    Function("setAppearance") { colors: Map<String, Any?> ->
+      Appearance.save(context, colors)
+    }
+
     /** A short "ping", e.g. when a voice note starts listening. */
     Function("playPing") {
       val tone = ToneGenerator(android.media.AudioManager.STREAM_NOTIFICATION, 90)

@@ -1,7 +1,6 @@
 package app.mts.forgetless.device
 
 import android.app.Activity
-import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
@@ -23,6 +22,8 @@ import java.util.Date
  */
 class AlarmActivity : Activity() {
   private lateinit var alarm: Alarm
+  /** The app's theme colours (Light, Dark or Custom). */
+  private lateinit var palette: Appearance
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
@@ -37,6 +38,7 @@ class AlarmActivity : Activity() {
       )
     }
     window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+    palette = Appearance.load(this)
 
     alarm = Alarm(
       intent.getStringExtra(Alarms.EXTRA_ID) ?: "",
@@ -70,10 +72,10 @@ class AlarmActivity : Activity() {
       gravity = Gravity.CENTER
       setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f)
       typeface = Typeface.DEFAULT_BOLD
-      setTextColor(if (filled) INK else PAPER)
+      setTextColor(if (filled) palette.onAccent else palette.text)
       background = GradientDrawable().apply {
         cornerRadius = dp(32).toFloat()
-        if (filled) setColor(ORANGE) else setStroke(dp(2), MUTED)
+        if (filled) setColor(palette.accent) else setStroke(dp(2), palette.textSecondary)
       }
       setPadding(dp(24), dp(18), dp(24), dp(18))
       setOnClickListener { onClick() }
@@ -82,21 +84,21 @@ class AlarmActivity : Activity() {
   private fun buildLayout() = LinearLayout(this).apply {
     orientation = LinearLayout.VERTICAL
     gravity = Gravity.CENTER
-    setBackgroundColor(BACKGROUND)
+    setBackgroundColor(palette.background)
     setPadding(dp(32), dp(48), dp(32), dp(48))
 
-    addView(text("FORGETLESS", 14f, ORANGE, bold = true).apply { letterSpacing = 0.2f })
+    addView(text("FORGETLESS", 14f, palette.accent, bold = true).apply { letterSpacing = 0.2f })
     addView(
-      text(DateFormat.getTimeFormat(this@AlarmActivity).format(Date()), 72f, PAPER, bold = true),
+      text(DateFormat.getTimeFormat(this@AlarmActivity).format(Date()), 72f, palette.text, bold = true),
       LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply { topMargin = dp(24) },
     )
     addView(
-      text(alarm.title, 28f, PAPER, bold = true),
+      text(alarm.title, 28f, palette.text, bold = true),
       LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply { topMargin = dp(16) },
     )
     if (alarm.body.isNotEmpty()) {
       addView(
-        text(alarm.body, 18f, MUTED),
+        text(alarm.body, 18f, palette.textSecondary),
         LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply { topMargin = dp(8) },
       )
     }
@@ -127,12 +129,6 @@ class AlarmActivity : Activity() {
   }
 
   companion object {
-    private val BACKGROUND = Color.parseColor("#0D0D0E")
-    private val PAPER = Color.parseColor("#F2EFEA")
-    private val MUTED = Color.parseColor("#A8A39C")
-    private val ORANGE = Color.parseColor("#FF6A13")
-    private val INK = Color.parseColor("#141414")
-
     private var current: WeakReference<AlarmActivity>? = null
 
     /** Closes the alarm screen when Snooze or Dismiss is tapped on the notification instead. */

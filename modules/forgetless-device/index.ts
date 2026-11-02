@@ -46,6 +46,20 @@ type ForgetlessDeviceModule = {
   playPing(): void;
   /** Sends the app to the background, like pressing Home. */
   moveToBack(): void;
+  /** The app's theme colours (hex), for the alarm screen and the widgets' quick-add popups. */
+  setAppearance(colors: AppearanceColors): void;
+};
+
+export type AppearanceColors = {
+  background: string;
+  surface: string;
+  text: string;
+  textSecondary: string;
+  accent: string;
+  onAccent: string;
+  border: string;
+  danger: string;
+  dark: boolean;
 };
 
 export const ForgetlessDevice = requireOptionalNativeModule<ForgetlessDeviceModule>('ForgetlessDevice');

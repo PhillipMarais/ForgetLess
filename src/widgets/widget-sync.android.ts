@@ -49,8 +49,9 @@ export function useWidgetSync() {
     const unsubscribe = subscribeToChanges((table) => {
       if (WATCHED.includes(table)) sync();
     });
+    // Also on leaving and coming back to the app (e.g. after midnight, or a widget popup).
     const appState = AppState.addEventListener('change', (state) => {
-      if (state === 'background') sync();
+      if (state === 'background' || state === 'active') sync();
     });
     return () => {
       clearTimeout(timer);
