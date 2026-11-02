@@ -2,6 +2,7 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 
 import { nextOccurrenceAfter } from '@/lib/recurrence';
 
+import { attachmentCountColumn, deleteAttachmentsFor } from './attachments';
 import { notifyChange } from './changes';
 import { currentTimeZone, newId, now } from './ids';
 
@@ -16,6 +17,7 @@ export type Task = {
   priority: number;
   completedAt: number | null;
   sortOrder: number;
+  attachmentCount: number;
   createdAt: number;
   updatedAt: number;
 };
@@ -31,9 +33,12 @@ type TaskRow = {
   priority: number;
   completed_at: number | null;
   sort_order: number;
+  attachment_count: number;
   created_at: number;
   updated_at: number;
 };
+
+const SELECT_TASKS = `SELECT tasks.*, ${attachmentCountColumn('task', 'tasks')} FROM tasks`;
 
 function toTask(row: TaskRow): Task {
   return {
@@ -47,6 +52,7 @@ function toTask(row: TaskRow): Task {
     priority: row.priority,
     completedAt: row.completed_at,
     sortOrder: row.sort_order,
+    attachmentCount: row.attachment_count,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -55,7 +61,7 @@ function toTask(row: TaskRow): Task {
 /** Open tasks first (soonest due, undated last), then completed tasks, most recent first. */
 export async function listTasks(db: SQLiteDatabase): Promise<Task[]> {
   const rows = await db.getAllAsync<TaskRow>(
-    `SELECT * FROM tasks
+    `${SELECT_TASKS}
      WHERE deleted_at IS NULL
      ORDER BY completed_at IS NOT NULL,
               CASE WHEN completed_at IS NULL THEN due_at END ASC NULLS LAST,
@@ -69,7 +75,7 @@ export async function listTasks(db: SQLiteDatabase): Promise<Task[]> {
 /** Open tasks due before `before` (epoch ms), oldest first. */
 export async function listOpenTasksDueBefore(db: SQLiteDatabase, before: number): Promise<Task[]> {
   const rows = await db.getAllAsync<TaskRow>(
-    `SELECT * FROM tasks
+    `${SELECT_TASKS}
      WHERE deleted_at IS NULL AND completed_at IS NULL AND due_at IS NOT NULL AND due_at < ?
      ORDER BY due_at ASC, sort_order ASC, created_at ASC`,
     before,
@@ -84,7 +90,7 @@ export async function listTasksDueBetween(
   to: number,
 ): Promise<Task[]> {
   const rows = await db.getAllAsync<TaskRow>(
-    `SELECT * FROM tasks
+    `${SELECT_TASKS}
      WHERE deleted_at IS NULL AND due_at >= ? AND due_at < ?
      ORDER BY due_at ASC, sort_order ASC, created_at ASC`,
     from,
@@ -95,7 +101,7 @@ export async function listTasksDueBetween(
 
 export async function getTask(db: SQLiteDatabase, id: string): Promise<Task | null> {
   const row = await db.getFirstAsync<TaskRow>(
-    'SELECT * FROM tasks WHERE id = ? AND deleted_at IS NULL',
+    `${SELECT_TASKS} WHERE id = ? AND deleted_at IS NULL`,
     id,
   );
   return row ? toTask(row) : null;
@@ -199,11 +205,14 @@ export async function setTaskCompleted(db: SQLiteDatabase, id: string, completed
 
 export async function deleteTask(db: SQLiteDatabase, id: string) {
   const timestamp = now();
-  await db.runAsync(
-    'UPDATE tasks SET deleted_at = ?, updated_at = ? WHERE id = ?',
-    timestamp,
-    timestamp,
-    id,
-  );
+  await db.withTransactionAsync(async () => {
+    await db.runAsync(
+      'UPDATE tasks SET deleted_at = ?, updated_at = ? WHERE id = ?',
+      timestamp,
+      timestamp,
+      id,
+    );
+    await deleteAttachmentsFor(db, 'task', id, timestamp);
+  });
   notifyChange('tasks');
 }

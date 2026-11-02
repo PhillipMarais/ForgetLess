@@ -39,12 +39,17 @@ export function TaskRow({ task }: { task: Task }) {
         <ThemedText themeColor={done ? 'textSecondary' : 'text'} style={done && styles.doneTitle}>
           {task.title}
         </ThemedText>
-        {task.dueAt !== null ? (
+        {task.dueAt !== null || task.attachmentCount > 0 ? (
           <View style={styles.due}>
-            <ThemedText type="small" themeColor={overdue ? 'danger' : 'textSecondary'}>
-              {formatDueLabel(task.dueAt, task.dueAllDay)}
-            </ThemedText>
+            {task.dueAt !== null ? (
+              <ThemedText type="small" themeColor={overdue ? 'danger' : 'textSecondary'}>
+                {formatDueLabel(task.dueAt, task.dueAllDay)}
+              </ThemedText>
+            ) : null}
             {task.rrule ? <Icon name={Icons.repeat} size={14} color="textSecondary" /> : null}
+            {task.attachmentCount > 0 ? (
+              <Icon name={Icons.photo} size={14} color="textSecondary" />
+            ) : null}
           </View>
         ) : null}
       </Pressable>

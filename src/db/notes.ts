@@ -1,5 +1,6 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
+import { attachmentCountColumn, deleteAttachmentsFor } from './attachments';
 import { notifyChange } from './changes';
 import { newId, now } from './ids';
 
@@ -8,6 +9,7 @@ export type Note = {
   title: string;
   body: string;
   pinned: boolean;
+  attachmentCount: number;
   createdAt: number;
   updatedAt: number;
 };
@@ -17,9 +19,12 @@ type NoteRow = {
   title: string;
   body: string;
   pinned: number;
+  attachment_count: number;
   created_at: number;
   updated_at: number;
 };
+
+const SELECT_NOTES = `SELECT notes.*, ${attachmentCountColumn('note', 'notes')} FROM notes`;
 
 function toNote(row: NoteRow): Note {
   return {
@@ -27,6 +32,7 @@ function toNote(row: NoteRow): Note {
     title: row.title,
     body: row.body,
     pinned: row.pinned === 1,
+    attachmentCount: row.attachment_count,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -35,14 +41,14 @@ function toNote(row: NoteRow): Note {
 /** Pinned first, then most recently edited. */
 export async function listNotes(db: SQLiteDatabase): Promise<Note[]> {
   const rows = await db.getAllAsync<NoteRow>(
-    `SELECT * FROM notes WHERE deleted_at IS NULL ORDER BY pinned DESC, updated_at DESC`,
+    `${SELECT_NOTES} WHERE deleted_at IS NULL ORDER BY pinned DESC, updated_at DESC`,
   );
   return rows.map(toNote);
 }
 
 export async function getNote(db: SQLiteDatabase, id: string): Promise<Note | null> {
   const row = await db.getFirstAsync<NoteRow>(
-    'SELECT * FROM notes WHERE id = ? AND deleted_at IS NULL',
+    `${SELECT_NOTES} WHERE id = ? AND deleted_at IS NULL`,
     id,
   );
   return row ? toNote(row) : null;
@@ -88,11 +94,14 @@ export async function setNotePinned(db: SQLiteDatabase, id: string, pinned: bool
 
 export async function deleteNote(db: SQLiteDatabase, id: string) {
   const timestamp = now();
-  await db.runAsync(
-    'UPDATE notes SET deleted_at = ?, updated_at = ? WHERE id = ?',
-    timestamp,
-    timestamp,
-    id,
-  );
+  await db.withTransactionAsync(async () => {
+    await db.runAsync(
+      'UPDATE notes SET deleted_at = ?, updated_at = ? WHERE id = ?',
+      timestamp,
+      timestamp,
+      id,
+    );
+    await deleteAttachmentsFor(db, 'note', id, timestamp);
+  });
   notifyChange('notes');
 }

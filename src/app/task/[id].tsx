@@ -9,10 +9,13 @@ import { EditorLayout, HeaderTextButton, leaveEditor } from '@/components/editor
 import { EmptyState } from '@/components/empty-state';
 import { FormRow, FormSection, FormSwitch, FormTextInput } from '@/components/form';
 import { Icons } from '@/components/icon';
+import { PhotoStrip } from '@/components/photo-strip';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
+import { listAttachments, type Attachment } from '@/db/attachments';
 import { deleteTask, getTask, updateTask, type Task } from '@/db/tasks';
+import { useDraftPhotos } from '@/hooks/use-draft-photos';
 import { nextHour, startOfDay, withTimeOf } from '@/lib/dates';
 import {
   buildRRule,
@@ -45,18 +48,24 @@ function draftFrom(task: Task): Draft {
 export default function TaskScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const db = useSQLiteContext();
-  const [task, setTask] = useState<Task | null | undefined>(undefined);
+  const [loaded, setLoaded] = useState<
+    { task: Task; attachments: Attachment[] } | null | undefined
+  >(undefined);
 
   useEffect(() => {
     let active = true;
-    getTask(db, id).then((loaded) => active && setTask(loaded));
+    (async () => {
+      const task = await getTask(db, id);
+      const attachments = task ? await listAttachments(db, 'task', task.id) : [];
+      if (active) setLoaded(task ? { task, attachments } : null);
+    })();
     return () => {
       active = false;
     };
   }, [db, id]);
 
-  if (task === undefined) return <ThemedView style={styles.fill} />;
-  if (task === null) {
+  if (loaded === undefined) return <ThemedView style={styles.fill} />;
+  if (loaded === null) {
     return (
       <ThemedView style={styles.fill}>
         <Stack.Screen options={{ title: 'Task' }} />
@@ -64,14 +73,16 @@ export default function TaskScreen() {
       </ThemedView>
     );
   }
-  return <TaskEditor key={task.id} task={task} />;
+  return <TaskEditor key={loaded.task.id} {...loaded} />;
 }
 
-function TaskEditor({ task }: { task: Task }) {
+function TaskEditor({ task, attachments }: { task: Task; attachments: Attachment[] }) {
   const db = useSQLiteContext();
   const [draft, setDraft] = useState(() => draftFrom(task));
+  const [saving, setSaving] = useState(false);
+  const photos = useDraftPhotos(attachments);
   const update = (changes: Partial<Draft>) => setDraft((current) => ({ ...current, ...changes }));
-  const valid = draft.title.trim().length > 0;
+  const valid = draft.title.trim().length > 0 && !saving && !photos.busy;
 
   const changeHasTime = (hasTime: boolean) =>
     update({
@@ -80,6 +91,7 @@ function TaskEditor({ task }: { task: Task }) {
     });
 
   const save = async () => {
+    setSaving(true);
     await updateTask(db, task.id, {
       title: draft.title,
       notes: draft.notes.trim() || null,
@@ -87,6 +99,7 @@ function TaskEditor({ task }: { task: Task }) {
       dueAllDay: draft.hasDue && !draft.hasTime,
       rrule: draft.hasDue ? buildRRule(draft.repeat) : null,
     });
+    await photos.save(db, 'task', task.id);
     leaveEditor('/tasks');
   };
 
@@ -153,6 +166,16 @@ function TaskEditor({ task }: { task: Task }) {
           ) : null}
         </FormSection>
       ) : null}
+
+      <FormSection label="Pictures">
+        <PhotoStrip
+          photos={photos.photos}
+          onAdd={photos.add}
+          onRemove={photos.remove}
+          busy={photos.busy}
+          error={photos.error}
+        />
+      </FormSection>
 
       <FormSection label="Notes">
         <FormTextInput

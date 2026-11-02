@@ -53,6 +53,9 @@ export function EventRow({ occurrence, day }: EventRowProps) {
           {time}
         </ThemedText>
       </View>
+      {occurrence.attachmentCount > 0 ? (
+        <Icon name={Icons.photo} size={16} color="textSecondary" />
+      ) : null}
       {occurrence.rrule ? <Icon name={Icons.repeat} size={16} color="textSecondary" /> : null}
     </Pressable>
   );

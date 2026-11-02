@@ -2,6 +2,7 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 
 import { occurrencesBetween } from '@/lib/recurrence';
 
+import { attachmentCountColumn, deleteAttachmentsFor } from './attachments';
 import { notifyChange } from './changes';
 import { currentTimeZone, newId, now } from './ids';
 
@@ -23,6 +24,7 @@ export type CalendarEvent = {
   allDay: boolean;
   timeZone: string;
   rrule: string | null;
+  attachmentCount: number;
   createdAt: number;
   updatedAt: number;
 };
@@ -36,6 +38,8 @@ export type EventOccurrence = {
   endAt: number;
   allDay: boolean;
   rrule: string | null;
+  /** Pictures belong to the whole event, so every occurrence shows the same count. */
+  attachmentCount: number;
 };
 
 export type EventInput = {
@@ -58,6 +62,7 @@ type EventRow = {
   all_day: number;
   time_zone: string;
   rrule: string | null;
+  attachment_count: number;
   created_at: number;
   updated_at: number;
 };
@@ -72,6 +77,8 @@ type ExceptionRow = {
   end_at: number | null;
 };
 
+const SELECT_EVENTS = `SELECT events.*, ${attachmentCountColumn('event', 'events')} FROM events`;
+
 function toEvent(row: EventRow): CalendarEvent {
   return {
     id: row.id,
@@ -82,6 +89,7 @@ function toEvent(row: EventRow): CalendarEvent {
     allDay: row.all_day === 1,
     timeZone: row.time_zone,
     rrule: row.rrule,
+    attachmentCount: row.attachment_count,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -107,6 +115,7 @@ function toOccurrence(
     endAt: exception?.end_at ?? originalStart + duration,
     allDay: event.allDay,
     rrule: event.rrule,
+    attachmentCount: event.attachmentCount,
   };
 }
 
@@ -116,7 +125,7 @@ function sortOccurrences(a: EventOccurrence, b: EventOccurrence) {
 
 export async function getEvent(db: SQLiteDatabase, id: string): Promise<CalendarEvent | null> {
   const row = await db.getFirstAsync<EventRow>(
-    'SELECT * FROM events WHERE id = ? AND deleted_at IS NULL',
+    `${SELECT_EVENTS} WHERE id = ? AND deleted_at IS NULL`,
     id,
   );
   return row ? toEvent(row) : null;
@@ -150,7 +159,7 @@ export async function listOccurrences(
 ): Promise<EventOccurrence[]> {
   const events = (
     await db.getAllAsync<EventRow>(
-      `SELECT * FROM events
+      `${SELECT_EVENTS}
        WHERE deleted_at IS NULL AND start_at < ? AND (rrule IS NOT NULL OR end_at >= ?)`,
       to,
       from,
@@ -248,6 +257,7 @@ export async function deleteEvent(db: SQLiteDatabase, id: string) {
       id,
     );
     await deleteExceptions(db, id, timestamp);
+    await deleteAttachmentsFor(db, 'event', id, timestamp);
   });
   notifyChange('events');
   notifyChange('occurrence_exceptions');

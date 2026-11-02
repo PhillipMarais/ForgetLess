@@ -45,7 +45,15 @@
       ],
       "expo-sqlite",
       "./plugins/with-android-cmake-dir",
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Forgetless uses your photos when you attach a picture to a task, event or note.",
+          "cameraPermission": "Forgetless uses the camera when you take a picture for a task, event or note.",
+          "microphonePermission": false
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

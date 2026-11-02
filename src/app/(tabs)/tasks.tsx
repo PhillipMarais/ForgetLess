@@ -24,7 +24,7 @@ const DUE_OPTIONS = [
 type DueDays = (typeof DUE_OPTIONS)[number]['value'];
 
 export default function TasksScreen() {
-  const { data: tasks } = useLiveQuery(['tasks'], 'all', listTasks);
+  const { data: tasks } = useLiveQuery(['tasks', 'attachments'], 'all', listTasks);
 
   return (
     <Screen title="Tasks">

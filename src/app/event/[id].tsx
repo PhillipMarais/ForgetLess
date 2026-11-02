@@ -10,6 +10,7 @@ import { EditorLayout, HeaderTextButton, leaveEditor } from '@/components/editor
 import { EmptyState } from '@/components/empty-state';
 import { FormRow, FormSection, FormSwitch, FormTextInput } from '@/components/form';
 import { Icons } from '@/components/icon';
+import { PhotoStrip } from '@/components/photo-strip';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
@@ -25,6 +26,8 @@ import {
   type EventInput,
   type EventOccurrence,
 } from '@/db/events';
+import { listAttachments, type Attachment } from '@/db/attachments';
+import { useDraftPhotos } from '@/hooks/use-draft-photos';
 import { addDays, nextHour, startOfDay } from '@/lib/dates';
 import {
   buildRRule,
@@ -48,7 +51,7 @@ type Draft = {
   repeat: RepeatFrequency | null;
 };
 
-type Existing = { event: CalendarEvent; occurrence: EventOccurrence };
+type Existing = { event: CalendarEvent; occurrence: EventOccurrence; attachments: Attachment[] };
 
 type Scope = 'one' | 'all';
 
@@ -99,7 +102,8 @@ export default function EventScreen() {
       const occurrence = event
         ? await getOccurrence(db, event.id, Number(params.occurrence ?? event.startAt))
         : null;
-      if (active) setExisting(event && occurrence ? { event, occurrence } : null);
+      const attachments = event ? await listAttachments(db, 'event', event.id) : [];
+      if (active) setExisting(event && occurrence ? { event, occurrence, attachments } : null);
     })();
     return () => {
       active = false;
@@ -126,9 +130,12 @@ function EventEditor({ initial, existing }: { initial: Draft; existing?: Existin
   const db = useSQLiteContext();
   const [draft, setDraft] = useState(initial);
   const [dialog, setDialog] = useState<'save' | 'delete' | null>(null);
+  const [saving, setSaving] = useState(false);
+  const photos = useDraftPhotos(existing?.attachments ?? []);
 
   const repeating = existing?.event.rrule != null;
-  const valid = draft.title.trim().length > 0 && draft.endAt >= draft.startAt;
+  const valid =
+    draft.title.trim().length > 0 && draft.endAt >= draft.startAt && !saving && !photos.busy;
   const update = (changes: Partial<Draft>) => setDraft((current) => ({ ...current, ...changes }));
 
   // Moving the start keeps the duration, like most calendars.
@@ -145,24 +152,29 @@ function EventEditor({ initial, existing }: { initial: Draft; existing?: Existin
 
   const save = async (scope: Scope) => {
     setDialog(null);
+    setSaving(true);
     const input = toInput(draft);
-    if (!existing) {
-      await createEvent(db, input);
-    } else if (!repeating) {
-      await updateEvent(db, existing.event.id, input);
+    const eventId = existing ? await saveExisting(existing, input, scope) : await createEvent(db, input);
+    // Pictures belong to the whole event, whichever scope was chosen.
+    await photos.save(db, 'event', eventId);
+    leaveEditor('/calendar');
+  };
+
+  const saveExisting = async ({ event, occurrence }: Existing, input: EventInput, scope: Scope) => {
+    if (!repeating) {
+      await updateEvent(db, event.id, input);
     } else if (scope === 'one') {
-      await editOccurrence(db, existing.event.id, existing.occurrence.originalStart, input);
+      await editOccurrence(db, event.id, occurrence.originalStart, input);
     } else {
       // Apply the same shift to the series that was made to this occurrence.
-      const shift = input.startAt - existing.occurrence.startAt;
-      const startAt = existing.event.startAt + shift;
-      await updateEvent(db, existing.event.id, {
+      const startAt = event.startAt + (input.startAt - occurrence.startAt);
+      await updateEvent(db, event.id, {
         ...input,
         startAt,
         endAt: startAt + (input.endAt - input.startAt),
       });
     }
-    leaveEditor('/calendar');
+    return event.id;
   };
 
   const remove = async (scope: Scope) => {
@@ -247,6 +259,21 @@ function EventEditor({ initial, existing }: { initial: Draft; existing?: Existin
           value={draft.repeat}
           onChange={(repeat) => update({ repeat })}
         />
+      </FormSection>
+
+      <FormSection label="Pictures">
+        <PhotoStrip
+          photos={photos.photos}
+          onAdd={photos.add}
+          onRemove={photos.remove}
+          busy={photos.busy}
+          error={photos.error}
+        />
+        {repeating || draft.repeat ? (
+          <ThemedText type="small" themeColor="textSecondary">
+            Pictures show on every occurrence.
+          </ThemedText>
+        ) : null}
       </FormSection>
 
       <FormSection label="Notes">

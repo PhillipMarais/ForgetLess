@@ -1,15 +1,21 @@
-import { router, Stack, useLocalSearchParams } from 'expo-router';
+import { Stack, useLocalSearchParams } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useEffect, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
+import { leaveEditor } from '@/components/editor';
 import { EmptyState } from '@/components/empty-state';
 import { Icons } from '@/components/icon';
 import { IconButton } from '@/components/icon-button';
+import { PhotoStrip } from '@/components/photo-strip';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { listAttachments } from '@/db/attachments';
 import { deleteNote, getNote, setNotePinned, updateNote, type Note } from '@/db/notes';
+import { useLiveQuery } from '@/db/use-live-query';
+import { usePhotoPicking } from '@/hooks/use-photo-picking';
 import { useTheme } from '@/hooks/use-theme';
+import { addPhoto, prepareDraftPhotos, removePhoto } from '@/lib/photos';
 
 const SAVE_DELAY_MS = 400;
 
@@ -38,17 +44,32 @@ export default function NoteScreen() {
   return <NoteEditor key={note.id} note={note} />;
 }
 
-function leave() {
-  if (router.canGoBack()) router.back();
-  else router.replace('/notes');
-}
-
 function NoteEditor({ note }: { note: Note }) {
   const db = useSQLiteContext();
   const theme = useTheme();
   const [title, setTitle] = useState(note.title);
   const [body, setBody] = useState(note.body);
   const [pinned, setPinned] = useState(note.pinned);
+
+  // Notes save as you type, so pictures are saved as soon as they are added or removed.
+  const { data: attachments = [] } = useLiveQuery(['attachments'], note.id, (db) =>
+    listAttachments(db, 'note', note.id),
+  );
+  const photoCount = useRef(note.attachmentCount);
+  useEffect(() => {
+    photoCount.current = attachments.length;
+  }, [attachments.length]);
+
+  const picking = usePhotoPicking(async (images) => {
+    for (const draft of await prepareDraftPhotos(images)) {
+      await addPhoto(db, 'note', note.id, draft.prepared!);
+    }
+  });
+
+  const removePicture = (key: string) => {
+    const attachment = attachments.find((item) => item.id === key);
+    if (attachment) removePhoto(db, attachment);
+  };
 
   const latest = useRef({ title: note.title, body: note.body });
   const pendingSave = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -66,7 +87,7 @@ function NoteEditor({ note }: { note: Note }) {
     }, SAVE_DELAY_MS);
   };
 
-  // On leaving: flush an unsaved edit, and drop the note if it was left empty.
+  // On leaving: flush an unsaved edit, and drop the note if it was left empty (no text or pictures).
   useEffect(() => {
     return () => {
       const unsaved = pendingSave.current !== undefined;
@@ -74,7 +95,7 @@ function NoteEditor({ note }: { note: Note }) {
       if (deleted.current) return;
 
       const { title, body } = latest.current;
-      if (!title.trim() && !body.trim()) deleteNote(db, note.id);
+      if (!title.trim() && !body.trim() && photoCount.current === 0) deleteNote(db, note.id);
       else if (unsaved) updateNote(db, note.id, latest.current);
     };
   }, [db, note.id]);
@@ -88,7 +109,7 @@ function NoteEditor({ note }: { note: Note }) {
     deleted.current = true;
     clearTimeout(pendingSave.current);
     await deleteNote(db, note.id);
-    leave();
+    leaveEditor('/notes');
   };
 
   return (
@@ -122,6 +143,13 @@ function NoteEditor({ note }: { note: Note }) {
           accessibilityLabel="Note title"
           autoFocus={!note.title && !note.body}
           style={[styles.title, { color: theme.text }]}
+        />
+        <PhotoStrip
+          photos={attachments.map((attachment) => ({ key: attachment.id, uri: attachment.uri }))}
+          onAdd={picking.pick}
+          onRemove={removePicture}
+          busy={picking.busy}
+          error={picking.error}
         />
         <TextInput
           value={body}

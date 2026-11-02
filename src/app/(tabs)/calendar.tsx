@@ -45,7 +45,7 @@ export default function CalendarScreen() {
   const to = addDays(grid[grid.length - 1], 1);
 
   const { data } = useLiveQuery(
-    ['events', 'occurrence_exceptions', 'tasks'],
+    ['events', 'occurrence_exceptions', 'tasks', 'attachments'],
     `${from}-${to}`,
     async (db) => ({
       occurrences: await listOccurrences(db, from, to),

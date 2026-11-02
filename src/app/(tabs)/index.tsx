@@ -16,7 +16,7 @@ export default function TodayScreen() {
   const today = startOfDay();
   const tomorrow = addDays(today, 1);
   const { data } = useLiveQuery(
-    ['events', 'occurrence_exceptions', 'tasks'],
+    ['events', 'occurrence_exceptions', 'tasks', 'attachments'],
     `today:${today}`,
     async (db) => ({
       events: await listOccurrences(db, today, tomorrow),

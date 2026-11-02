@@ -1,0 +1,95 @@
+import type { SQLiteDatabase } from 'expo-sqlite';
+
+import {
+  addAttachment,
+  clearDeletedAttachmentUris,
+  deleteAttachment,
+  listDeletedAttachmentUris,
+  type Attachment,
+  type OwnerType,
+} from '@/db/attachments';
+import { newId } from '@/db/ids';
+
+import type { PickedImage, PreparedPhoto } from './photo-compress';
+import { deletePhotoFile, preparePhoto, storePhoto } from './photo-storage';
+
+/**
+ * A picture in an editor: either already saved (`attachment`) or picked but not yet
+ * saved (`prepared`). Editors keep a list of these and save the changes on Save.
+ */
+export type DraftPhoto = {
+  key: string;
+  uri: string;
+  attachment?: Attachment;
+  prepared?: PreparedPhoto;
+};
+
+export function draftPhotosFrom(attachments: readonly Attachment[]): DraftPhoto[] {
+  return attachments.map((attachment) => ({
+    key: attachment.id,
+    uri: attachment.uri,
+    attachment,
+  }));
+}
+
+export async function prepareDraftPhotos(images: readonly PickedImage[]): Promise<DraftPhoto[]> {
+  const drafts: DraftPhoto[] = [];
+  for (const image of images) {
+    const prepared = await preparePhoto(image);
+    drafts.push({ key: newId(), uri: prepared.uri, prepared });
+  }
+  return drafts;
+}
+
+/** Stores one prepared picture and records it against its owner. */
+export async function addPhoto(
+  db: SQLiteDatabase,
+  ownerType: OwnerType,
+  ownerId: string,
+  photo: PreparedPhoto,
+) {
+  const id = newId();
+  const uri = await storePhoto(photo, id);
+  await addAttachment(db, {
+    id,
+    ownerType,
+    ownerId,
+    uri,
+    mimeType: photo.mimeType,
+    width: photo.width,
+    height: photo.height,
+    byteSize: photo.byteSize,
+  });
+}
+
+export async function removePhoto(db: SQLiteDatabase, attachment: Attachment) {
+  await deleteAttachment(db, attachment.id);
+  deletePhotoFile(attachment.uri);
+}
+
+/** Saves an editor's picture changes: removes dropped pictures and stores new ones. */
+export async function savePhotoChanges(
+  db: SQLiteDatabase,
+  ownerType: OwnerType,
+  ownerId: string,
+  initial: readonly Attachment[],
+  photos: readonly DraftPhoto[],
+) {
+  const kept = new Set(photos.flatMap((photo) => (photo.attachment ? [photo.attachment.id] : [])));
+  for (const attachment of initial) {
+    if (!kept.has(attachment.id)) await removePhoto(db, attachment);
+  }
+  for (const photo of photos) {
+    if (photo.prepared) await addPhoto(db, ownerType, ownerId, photo.prepared);
+  }
+}
+
+/**
+ * Deletes the files of pictures whose owner was deleted (rows are soft-deleted, so the
+ * files would otherwise stay). Safe to run repeatedly; run at startup.
+ */
+export async function purgeDeletedPhotos(db: SQLiteDatabase) {
+  const uris = await listDeletedAttachmentUris(db);
+  for (const uri of uris) deletePhotoFile(uri);
+  await clearDeletedAttachmentUris(db, uris);
+}

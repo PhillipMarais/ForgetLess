@@ -15,7 +15,7 @@ import { formatDueLabel } from '@/lib/dates';
 
 export default function NotesScreen() {
   const db = useSQLiteContext();
-  const { data: notes } = useLiveQuery(['notes'], 'all', listNotes);
+  const { data: notes } = useLiveQuery(['notes', 'attachments'], 'all', listNotes);
 
   const newNote = async () => {
     const id = await createNote(db);
@@ -64,6 +64,9 @@ function NoteCard({ note }: { note: Note }) {
         <ThemedText type="smallBold" numberOfLines={1} style={styles.cardTitle}>
           {title}
         </ThemedText>
+        {note.attachmentCount > 0 ? (
+          <Icon name={Icons.photo} size={16} color="textSecondary" />
+        ) : null}
         {note.pinned ? <Icon name={Icons.pin} size={16} color="textSecondary" /> : null}
       </View>
       {preview ? (
