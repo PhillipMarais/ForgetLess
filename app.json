@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "forgetless",
+    "name": "Forgetless",
     "slug": "forgetless",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -8,9 +8,11 @@
     "scheme": "forgetless",
     "userInterfaceStyle": "automatic",
     "ios": {
+      "bundleIdentifier": "app.mts.forgetless",
       "icon": "./assets/expo.icon"
     },
     "android": {
+      "package": "app.mts.forgetless",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
