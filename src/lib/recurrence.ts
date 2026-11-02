@@ -90,6 +90,15 @@ export function occurrencesBetween(rrule: string, start: number, from: number, t
     .filter((time) => time >= from && time < to);
 }
 
+/**
+ * Moves `time` by the same wall-clock change that took `from` to `to`, so a series moved
+ * from 09:00 to 10:00 moves each occurrence to 10:00 even across a DST change.
+ */
+export function shiftWallClock(time: number, from: number, to: number) {
+  const shift = toFloating(to).getTime() - toFloating(from).getTime();
+  return fromFloating(new Date(toFloating(time).getTime() + shift));
+}
+
 /** The first occurrence strictly after `after`, or null if the series has ended. */
 export function nextOccurrenceAfter(rrule: string, start: number, after: number) {
   const next = ruleFor(rrule, start).after(toFloating(after), false);

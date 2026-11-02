@@ -1,7 +1,8 @@
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useEffect, useRef, useState } from 'react';
-import { ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { StyleSheet, TextInput, View } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 
 import { leaveEditor } from '@/components/editor';
 import { EmptyState } from '@/components/empty-state';
@@ -134,7 +135,10 @@ function NoteEditor({ note }: { note: Note }) {
           ),
         }}
       />
-      <ScrollView contentContainerStyle={styles.content} keyboardDismissMode="interactive">
+      <KeyboardAwareScrollView
+        bottomOffset={Spacing.four}
+        contentContainerStyle={styles.content}
+        keyboardDismissMode="interactive">
         <TextInput
           value={title}
           onChangeText={(text) => edit({ title: text })}
@@ -161,7 +165,7 @@ function NoteEditor({ note }: { note: Note }) {
           textAlignVertical="top"
           style={[styles.body, { color: theme.text }]}
         />
-      </ScrollView>
+      </KeyboardAwareScrollView>
     </ThemedView>
   );
 }

@@ -1,6 +1,6 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
-import { occurrencesBetween } from '@/lib/recurrence';
+import { occurrencesBetween, shiftWallClock } from '@/lib/recurrence';
 
 import { attachmentCountColumn, deleteAttachmentsFor } from './attachments';
 import { notifyChange } from './changes';
@@ -110,7 +110,7 @@ function toOccurrence(
     eventId: event.id,
     originalStart,
     title: exception?.title ?? event.title,
-    notes: exception ? exception.notes : event.notes,
+    notes: exception?.notes ?? event.notes,
     startAt: exception?.start_at ?? originalStart,
     endAt: exception?.end_at ?? originalStart + duration,
     allDay: event.allDay,
@@ -217,16 +217,16 @@ export async function createEvent(db: SQLiteDatabase, input: EventInput): Promis
 }
 
 /**
- * Updates the whole event (every occurrence). If a repeating event's start or rule changes,
- * its per-occurrence exceptions no longer line up with the new occurrences and are dropped.
+ * Updates the whole event (every occurrence) and keeps one-off changes consistent with it:
+ * - A field changed here (title, notes, times) replaces one-off changes to that field.
+ * - Moving the series moves its one-off changes and cancellations along with it.
+ * - Changing the repeat rule drops them, as the occurrences no longer line up.
  */
 export async function updateEvent(db: SQLiteDatabase, id: string, input: EventInput) {
   const existing = await getEvent(db, id);
   if (!existing) return;
   const timestamp = now();
-  const seriesChanged =
-    existing.rrule !== null &&
-    (existing.startAt !== input.startAt || existing.rrule !== input.rrule);
+  const repeating = existing.rrule !== null;
 
   await db.withTransactionAsync(async () => {
     await db.runAsync(
@@ -241,10 +241,50 @@ export async function updateEvent(db: SQLiteDatabase, id: string, input: EventIn
       timestamp,
       id,
     );
-    if (seriesChanged) await deleteExceptions(db, id, timestamp);
+    if (!repeating) return;
+    if (existing.rrule !== input.rrule) await deleteExceptions(db, id, timestamp);
+    else await realignExceptions(db, existing, input, timestamp);
   });
   notifyChange('events');
-  if (seriesChanged) notifyChange('occurrence_exceptions');
+  if (repeating) notifyChange('occurrence_exceptions');
+}
+
+async function realignExceptions(
+  db: SQLiteDatabase,
+  before: CalendarEvent,
+  after: EventInput,
+  timestamp: number,
+) {
+  const moved = before.startAt !== after.startAt;
+  const timesChanged =
+    moved || before.endAt - before.startAt !== after.endAt - after.startAt;
+  const titleChanged = before.title !== after.title.trim();
+  const notesChanged = before.notes !== after.notes;
+  if (!moved && !timesChanged && !titleChanged && !notesChanged) return;
+
+  // Deleted rows move too: they still hold their slot in the unique (owner, original_start) key.
+  // Rows are visited in the direction of the move so none lands on a slot not yet vacated.
+  const later = after.startAt > before.startAt;
+  const rows = await db.getAllAsync<ExceptionRow & { id: string; deleted_at: number | null }>(
+    `SELECT * FROM occurrence_exceptions WHERE owner_type = 'event' AND owner_id = ?
+     ORDER BY original_start ${later ? 'DESC' : 'ASC'}`,
+    before.id,
+  );
+  for (const row of rows) {
+    const live = row.deleted_at === null;
+    await db.runAsync(
+      `UPDATE occurrence_exceptions
+       SET original_start = ?, title = ?, notes = ?, start_at = ?, end_at = ?, updated_at = ?
+       WHERE id = ?`,
+      moved ? shiftWallClock(row.original_start, before.startAt, after.startAt) : row.original_start,
+      live && titleChanged ? null : row.title,
+      live && notesChanged ? null : row.notes,
+      live && timesChanged ? null : row.start_at,
+      live && timesChanged ? null : row.end_at,
+      timestamp,
+      row.id,
+    );
+  }
 }
 
 export async function deleteEvent(db: SQLiteDatabase, id: string) {

@@ -33,6 +33,7 @@ import {
   buildRRule,
   REPEAT_OPTIONS,
   repeatFrequencyOf,
+  shiftWallClock,
   type RepeatFrequency,
 } from '@/lib/recurrence';
 
@@ -166,12 +167,21 @@ function EventEditor({ initial, existing }: { initial: Draft; existing?: Existin
     } else if (scope === 'one') {
       await editOccurrence(db, event.id, occurrence.originalStart, input);
     } else {
-      // Apply the same shift to the series that was made to this occurrence.
-      const startAt = event.startAt + (input.startAt - occurrence.startAt);
+      // The form shows this occurrence, which may have one-off changes. Only fields edited
+      // now go to the series; untouched ones keep the series' own values.
+      const timesEdited =
+        draft.startAt !== initial.startAt ||
+        draft.endAt !== initial.endAt ||
+        draft.allDay !== initial.allDay;
+      const startAt = timesEdited
+        ? shiftWallClock(event.startAt, occurrence.startAt, input.startAt)
+        : event.startAt;
       await updateEvent(db, event.id, {
         ...input,
+        title: draft.title !== initial.title ? input.title : event.title,
+        notes: draft.notes !== initial.notes ? input.notes : event.notes,
         startAt,
-        endAt: startAt + (input.endAt - input.startAt),
+        endAt: timesEdited ? startAt + (input.endAt - input.startAt) : event.endAt,
       });
     }
     return event.id;

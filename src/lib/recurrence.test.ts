@@ -4,6 +4,7 @@ import {
   nextOccurrenceAfter,
   occurrencesBetween,
   repeatFrequencyOf,
+  shiftWallClock,
 } from './recurrence';
 
 const at = (y: number, m: number, d: number, h = 0, min = 0) =>
@@ -55,6 +56,20 @@ describe('occurrencesBetween', () => {
     const start = at(2026, 1, 31, 8);
     const result = occurrencesBetween('FREQ=MONTHLY', start, start, at(2026, 6, 1));
     expect(result).toEqual([at(2026, 1, 31, 8), at(2026, 3, 31, 8), at(2026, 5, 31, 8)]);
+  });
+});
+
+describe('shiftWallClock', () => {
+  it('moves by the same wall-clock change across a DST change', () => {
+    // 09:00 -> 10:00 in October (summer time) moves a December 09:00 to 10:00 (winter time).
+    const moved = shiftWallClock(at(2026, 12, 7, 9), at(2026, 10, 5, 9), at(2026, 10, 5, 10));
+    expect(moved).toBe(at(2026, 12, 7, 10));
+  });
+
+  it('moves by whole days', () => {
+    expect(shiftWallClock(at(2026, 11, 16, 9), at(2026, 11, 2, 9), at(2026, 11, 9, 9))).toBe(
+      at(2026, 11, 23, 9),
+    );
   });
 });
 

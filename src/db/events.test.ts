@@ -118,14 +118,78 @@ describe('repeating events', () => {
     expect(await getOccurrence(db, id, at(2026, 11, 16, 9))).toBeNull();
   });
 
-  it('drops per-occurrence changes when the series start or rule changes', async () => {
+  it('drops per-occurrence changes when the repeat rule changes', async () => {
     const id = await createEvent(db, input({ rrule: 'FREQ=WEEKLY' }));
     await cancelOccurrence(db, id, at(2026, 11, 16, 9));
-    await updateEvent(db, id, input({ rrule: 'FREQ=WEEKLY', startAt: at(2026, 11, 2, 10), endAt: at(2026, 11, 2, 11) }));
+    await updateEvent(db, id, input({ rrule: 'FREQ=DAILY' }));
+
+    expect(await listOccurrences(db, NOV_1, DEC_1)).toHaveLength(29);
+  });
+
+  it('moves cancellations with the series when its time changes', async () => {
+    const id = await createEvent(db, input({ rrule: 'FREQ=WEEKLY' }));
+    await cancelOccurrence(db, id, at(2026, 11, 16, 9));
+    await updateEvent(
+      db,
+      id,
+      input({ rrule: 'FREQ=WEEKLY', startAt: at(2026, 11, 2, 10), endAt: at(2026, 11, 2, 11) }),
+    );
 
     const occurrences = await listOccurrences(db, NOV_1, DEC_1);
-    expect(occurrences).toHaveLength(5);
+    expect(occurrences.map((o) => new Date(o.startAt).getDate())).toEqual([2, 9, 23, 30]);
     expect(occurrences.every((o) => new Date(o.startAt).getHours() === 10)).toBe(true);
+  });
+
+  it('moves several one-off changes by a week without them colliding', async () => {
+    const id = await createEvent(db, input({ rrule: 'FREQ=WEEKLY' }));
+    await cancelOccurrence(db, id, at(2026, 11, 9, 9));
+    await cancelOccurrence(db, id, at(2026, 11, 16, 9));
+    await updateEvent(
+      db,
+      id,
+      input({ rrule: 'FREQ=WEEKLY', startAt: at(2026, 11, 9, 9), endAt: at(2026, 11, 9, 9, 30) }),
+    );
+
+    const days = (await listOccurrences(db, NOV_1, DEC_1)).map((o) => new Date(o.startAt).getDate());
+    expect(days).toEqual([9, 30]);
+  });
+
+  it('a title changed for all events replaces earlier one-off titles', async () => {
+    const id = await createEvent(db, input({ rrule: 'FREQ=WEEKLY' }));
+    const original = at(2026, 11, 9, 9);
+    await editOccurrence(db, id, original, {
+      title: 'Gym (short)',
+      notes: 'Only legs',
+      startAt: original,
+      endAt: original + HOUR / 2,
+    });
+    await updateEvent(db, id, input({ rrule: 'FREQ=WEEKLY', title: 'Gym (long)' }));
+
+    const occurrences = await listOccurrences(db, NOV_1, DEC_1);
+    expect(occurrences.every((o) => o.title === 'Gym (long)')).toBe(true);
+    // Notes were not changed for all events, so the one-off notes stay.
+    expect((await getOccurrence(db, id, original))?.notes).toBe('Only legs');
+  });
+
+  it('times changed for all events replace earlier one-off times', async () => {
+    const id = await createEvent(db, input({ rrule: 'FREQ=WEEKLY' }));
+    const original = at(2026, 11, 9, 9);
+    await editOccurrence(db, id, original, {
+      title: 'Standup',
+      notes: null,
+      startAt: at(2026, 11, 9, 14),
+      endAt: at(2026, 11, 9, 15),
+    });
+    await updateEvent(
+      db,
+      id,
+      input({ rrule: 'FREQ=WEEKLY', startAt: at(2026, 11, 2, 8), endAt: at(2026, 11, 2, 8, 30) }),
+    );
+
+    expect(await getOccurrence(db, id, at(2026, 11, 9, 8))).toMatchObject({
+      startAt: at(2026, 11, 9, 8),
+      endAt: at(2026, 11, 9, 8, 30),
+    });
   });
 
   it('keeps per-occurrence changes when only the title changes', async () => {

@@ -1,21 +1,23 @@
 import { router, type Href } from 'expo-router';
 import type { PropsWithChildren } from 'react';
-import { Pressable, ScrollView, StyleSheet } from 'react-native';
+import { Pressable, StyleSheet } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 
-/** Scrollable, centered column for an edit screen. */
+/** Scrollable, centered column for an edit screen; keeps the focused field above the keyboard. */
 export function EditorLayout({ children }: PropsWithChildren) {
   return (
     <ThemedView style={styles.container}>
-      <ScrollView
+      <KeyboardAwareScrollView
+        bottomOffset={Spacing.four}
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="interactive">
         {children}
-      </ScrollView>
+      </KeyboardAwareScrollView>
     </ThemedView>
   );
 }
