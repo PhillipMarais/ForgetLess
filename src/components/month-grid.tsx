@@ -57,7 +57,9 @@ export function MonthGrid({ month, selectedDay, onSelectDay, marks }: MonthGridP
                   ]}>
                   <ThemedText
                     type={isToday || selected ? 'smallBold' : 'small'}
-                    themeColor={selected ? 'onAccent' : inMonth ? 'text' : 'textSecondary'}
+                    themeColor={
+                      selected ? 'onAccent' : marks.holidays.has(day) ? 'danger' : inMonth ? 'text' : 'textSecondary'
+                    }
                     style={!inMonth && !selected && styles.outside}>
                     {date.getDate()}
                   </ThemedText>

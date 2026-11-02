@@ -6,6 +6,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { AlarmField } from '@/components/alarm-field';
 import { ChipGroup } from '@/components/chip';
 import { DateTimeField } from '@/components/date-time-field';
+import { ClearTextButton } from '@/components/clear-text-button';
 import { EditorLayout, HeaderTextButton, leaveEditor } from '@/components/editor';
 import { EmptyState } from '@/components/empty-state';
 import { FormRow, FormSection, FormSwitch, FormTextInput } from '@/components/form';
@@ -213,7 +214,9 @@ function TaskEditor({ task, attachments, alarm, initialTitle }: Loaded & { initi
         <PhotoStrip draft={photos} />
       </FormSection>
 
-      <FormSection label="Notes">
+      <FormSection
+        label="Notes"
+        action={<ClearTextButton text={draft.notes} onChange={(notes) => update({ notes })} />}>
         <FormTextInput
           value={draft.notes}
           onChangeText={(notes) => update({ notes })}

@@ -1,18 +1,21 @@
-import type { PropsWithChildren } from 'react';
+import type { PropsWithChildren, ReactNode } from 'react';
 import { StyleSheet, Switch, TextInput, View, type TextInputProps } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { fontStyle, Radius, Spacing } from '@/constants/theme';
 import { useAppTheme, useFontSize, useTheme } from '@/hooks/use-theme';
 
-/** A labelled block in an editor form. */
-export function FormSection({ label, children }: PropsWithChildren<{ label?: string }>) {
+/** A labelled block in an editor form; `action` sits at the right of the label, e.g. Clear. */
+export function FormSection({ label, action, children }: PropsWithChildren<{ label?: string; action?: ReactNode }>) {
   return (
     <View style={styles.section}>
-      {label ? (
-        <ThemedText type="label">
-          {label}
-        </ThemedText>
+      {label || action ? (
+        <View style={styles.sectionHeader}>
+          <ThemedText type="label" style={styles.sectionLabel}>
+            {label}
+          </ThemedText>
+          {action}
+        </View>
       ) : null}
       {children}
     </View>
@@ -88,6 +91,14 @@ export function FormTextInput({
 const styles = StyleSheet.create({
   section: {
     gap: Spacing.two,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
+  sectionLabel: {
+    flex: 1,
   },
   row: {
     flexDirection: 'row',

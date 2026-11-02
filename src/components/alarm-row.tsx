@@ -6,10 +6,10 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { ChoiceDialog } from '@/components/choice-dialog';
 import { Icon, Icons } from '@/components/icon';
 import { ThemedText } from '@/components/themed-text';
-import { fontStyle, Spacing } from '@/constants/theme';
+import { fontStyle, Radius, Spacing } from '@/constants/theme';
 import { setAlarmOffset, skipAlarm } from '@/db/reminders';
 import { useAppTheme } from '@/hooks/use-theme';
-import type { PlannedAlarm } from '@/lib/alarms';
+import { describeTimeUntil, type PlannedAlarm } from '@/lib/alarms';
 import { formatTime } from '@/lib/dates';
 
 type Action = 'edit' | 'skip' | 'off';
@@ -61,7 +61,7 @@ export function AlarmRow({ alarm, now }: { alarm: PlannedAlarm; now: number }) {
     <>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`${rang ? 'Rang' : 'Alarm'} at ${formatTime(alarm.at)}, ${alarm.title}`}
+        accessibilityLabel={`${rang ? 'Rang' : 'Alarm'} at ${formatTime(alarm.at)}${rang ? '' : `, in ${describeTimeUntil(alarm.at, now)}`}, ${alarm.title}`}
         accessibilityHint="Edit or cancel this alarm"
         onPress={() => setChoosing(true)}
         style={({ pressed }) => [
@@ -72,7 +72,16 @@ export function AlarmRow({ alarm, now }: { alarm: PlannedAlarm; now: number }) {
         ]}>
         <Icon name={rang ? Icons.alarmOff : Icons.alarm} size={24} color={rang ? 'textSecondary' : 'accentText'} />
         <View style={styles.text}>
-          <ThemedText style={[styles.time, fontStyle(theme, 'display', 700)]}>{formatTime(alarm.at)}</ThemedText>
+          <View style={styles.timeRow}>
+            <ThemedText style={[styles.time, fontStyle(theme, 'display', 700)]}>{formatTime(alarm.at)}</ThemedText>
+            {!rang ? (
+              <View style={[styles.until, { backgroundColor: colors.backgroundSelected }]}>
+                <ThemedText type="smallBold" themeColor="accentText">
+                  in {describeTimeUntil(alarm.at, now)}
+                </ThemedText>
+              </View>
+            ) : null}
+          </View>
           <ThemedText numberOfLines={1}>{alarm.title}</ThemedText>
           <View style={styles.meta}>
             <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
@@ -113,9 +122,20 @@ const styles = StyleSheet.create({
   text: {
     flex: 1,
   },
+  timeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
+  },
   time: {
     fontSize: 28,
     lineHeight: 34,
+  },
+  until: {
+    borderRadius: Radius.pill,
+    paddingHorizontal: Spacing.two,
+    paddingVertical: Spacing.half,
   },
   meta: {
     flexDirection: 'row',

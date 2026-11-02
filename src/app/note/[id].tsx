@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ChipGroup } from '@/components/chip';
 import { ChoiceDialog, ConfirmDialog } from '@/components/choice-dialog';
+import { ClearTextButton } from '@/components/clear-text-button';
 import { DictationButton } from '@/components/dictation-button';
 import { HeaderTextButton, KEYBOARD_GAP, leaveEditor } from '@/components/editor';
 import { DocumentList } from '@/components/document-list';
@@ -214,6 +215,9 @@ function NoteEditor({
           label="Speak to write"
           languageName={dictation.languageName}
         />
+        <View style={styles.clearRow}>
+          <ClearTextButton text={body} onChange={setBody} what="Note text" />
+        </View>
         <TextInput
           value={body}
           onChangeText={setBody}
@@ -284,6 +288,10 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
+  },
+  clearRow: {
+    alignItems: 'flex-end',
+    marginBottom: -Spacing.two,
   },
   title: {
     fontSize: 24,

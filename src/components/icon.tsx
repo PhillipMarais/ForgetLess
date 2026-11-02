@@ -68,4 +68,6 @@ export const Icons = {
   mic: { ios: 'mic', material: 'mic' },
   alarmOff: { ios: 'alarm', material: 'alarm_off' },
   timeline: { ios: 'clock', material: 'view_timeline' },
+  holiday: { ios: 'flag', material: 'celebration' },
+  clear: { ios: 'xmark.circle', material: 'backspace' },
 } as const satisfies Record<string, IconName>;

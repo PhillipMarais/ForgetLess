@@ -50,7 +50,9 @@ export function WeekStrip({ week, selectedDay, onSelectDay, marks }: WeekStripPr
                 selected && { backgroundColor: theme.accent },
                 !selected && isToday && { borderColor: theme.accent, borderWidth: 1.5 },
               ]}>
-              <ThemedText type="smallBold" themeColor={selected ? 'onAccent' : 'text'}>
+              <ThemedText
+                type="smallBold"
+                themeColor={selected ? 'onAccent' : marks.holidays.has(day) ? 'danger' : 'text'}>
                 {date.getDate()}
               </ThemedText>
             </View>

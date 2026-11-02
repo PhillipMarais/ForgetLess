@@ -1,6 +1,7 @@
 import { SettingChoices, SettingSwitch, SettingsGroup, SettingsPage } from '@/components/settings-row';
-import { SPEECH_LANGUAGES } from '@/constants/speech-languages';
+import { SPEECH_LANGUAGES, speechLanguageName } from '@/constants/speech-languages';
 import type { CalendarStartView } from '@/db/settings';
+import { HOLIDAY_REGIONS } from '@/lib/holidays';
 import { useSettings } from '@/hooks/use-settings';
 
 const START_VIEWS: { value: CalendarStartView; title: string; description: string }[] = [
@@ -65,7 +66,10 @@ export default function GeneralSettingsScreen() {
         />
       </SettingsGroup>
 
-      <SettingsGroup label="Calendar opens on">
+      <SettingsGroup
+        label="Calendar opens on"
+        collapsible
+        summary={START_VIEWS.find((view) => view.value === settings.calendarStartView)?.title}>
         <SettingChoices
           label="Calendar opens on"
           options={START_VIEWS}
@@ -74,7 +78,22 @@ export default function GeneralSettingsScreen() {
         />
       </SettingsGroup>
 
-      <SettingsGroup label="Voice notes language">
+      <SettingsGroup
+        label="Public holidays"
+        collapsible
+        summary={HOLIDAY_REGIONS.find((region) => region.value === settings.holidayRegion)?.title}>
+        <SettingChoices
+          label="Public holidays"
+          options={HOLIDAY_REGIONS}
+          value={settings.holidayRegion}
+          onChange={(value) => setSetting('holidayRegion', value)}
+        />
+      </SettingsGroup>
+
+      <SettingsGroup
+        label="Voice notes language"
+        collapsible
+        summary={speechLanguageName(settings.speechLanguage)}>
         <SettingChoices
           label="Voice notes language"
           options={SPEECH_LANGUAGES}

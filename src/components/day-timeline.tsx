@@ -1,11 +1,12 @@
 import { router } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View, type ScrollViewInstance } from 'react-native';
 
 import { openEvent } from '@/components/event-row';
 import { ThemedText } from '@/components/themed-text';
 import { Radius, Spacing } from '@/constants/theme';
 import type { EventOccurrence } from '@/db/events';
+import { useNow } from '@/hooks/use-now';
 import { useTheme } from '@/hooks/use-theme';
 import { formatTime, startOfDay } from '@/lib/dates';
 import { layoutTimeline } from '@/lib/timeline';
@@ -135,17 +136,6 @@ export function DayTimeline({ day, occurrences }: DayTimelineProps) {
       </View>
     </ScrollView>
   );
-}
-
-/** The current time, refreshed every minute while `live`. */
-function useNow(live: boolean) {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    if (!live) return;
-    const timer = setInterval(() => setNow(Date.now()), MINUTE);
-    return () => clearInterval(timer);
-  }, [live]);
-  return now;
 }
 
 const styles = StyleSheet.create({

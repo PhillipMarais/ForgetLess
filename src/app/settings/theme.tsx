@@ -44,7 +44,10 @@ export default function ThemeSettingsScreen() {
 
   return (
     <SettingsPage>
-      <SettingsGroup label="Theme">
+      <SettingsGroup
+        label="Theme"
+        collapsible
+        summary={OPTIONS.find((option) => option.value === settings.theme)?.title}>
         <View style={styles.grid} accessibilityRole="radiogroup" accessibilityLabel="Theme">
           {OPTIONS.map((option) => (
             <ThemeCard
@@ -76,11 +79,11 @@ export default function ThemeSettingsScreen() {
         <Icon name={Icons.next} size={22} color="textSecondary" />
       </Pressable>
 
-      <SettingsGroup label="Font">
+      <SettingsGroup label="Font" collapsible summary={FONT_SETS[settings.fontSet].label}>
         <FontChoices value={settings.fontSet} onChange={(fontSet) => setSetting('fontSet', fontSet)} />
       </SettingsGroup>
 
-      <SettingsGroup label="Text size">
+      <SettingsGroup label="Text size" collapsible summary={TEXT_SIZES[settings.textSize].label}>
         <SettingChoices
           label="Text size"
           options={TEXT_SIZE_OPTIONS}
@@ -90,7 +93,7 @@ export default function ThemeSettingsScreen() {
         />
       </SettingsGroup>
 
-      <SettingsGroup label="Button size">
+      <SettingsGroup label="Button size" collapsible summary={CONTROL_SIZES[settings.controlSize].label}>
         <SettingChoices
           label="Button size"
           options={CONTROL_SIZE_OPTIONS}

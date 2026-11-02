@@ -8,6 +8,7 @@ import { AlarmRow } from '@/components/alarm-row';
 import { ChipGroup } from '@/components/chip';
 import { EmptyState } from '@/components/empty-state';
 import { EventRow } from '@/components/event-row';
+import { HolidayBanner } from '@/components/holiday-banner';
 import { Icons } from '@/components/icon';
 import { IconButton } from '@/components/icon-button';
 import { AppBrand } from '@/components/logo';
@@ -20,8 +21,11 @@ import { listOccurrences } from '@/db/events';
 import { dismissFromToday, listTodayTasks, taskEntryKey, type Task } from '@/db/tasks';
 import { useLiveQuery } from '@/db/use-live-query';
 import { useLayout } from '@/hooks/use-layout';
+import { useNow } from '@/hooks/use-now';
 import { planAlarms } from '@/lib/alarms';
 import { addDays, formatLongDate, startOfDay } from '@/lib/dates';
+import { holidaysBetween } from '@/lib/holidays';
+import { useSettings } from '@/hooks/use-settings';
 
 type Filter = 'all' | 'schedule' | 'tasks';
 type Tab = 'today' | 'alarms';
@@ -38,7 +42,11 @@ export default function TodayScreen() {
   const today = startOfDay();
   const tomorrow = addDays(today, 1);
   const [filter, setFilter] = useState<Filter>('all');
+  const { settings } = useSettings();
+  const holiday = holidaysBetween(settings.holidayRegion, today, tomorrow).get(today);
   const [tab, setTab] = useState<Tab>('today');
+  // Ticks every 30 seconds so "in 25 minutes" stays right and rung alarms grey out.
+  const now = useNow(true, 30_000);
   const { data } = useLiveQuery(
     ['events', 'occurrence_exceptions', 'tasks', 'attachments', 'task_steps', 'reminders', 'alarm_skips'],
     `today:${today}`,
@@ -47,8 +55,6 @@ export default function TodayScreen() {
       tasks: await listTodayTasks(db, today, tomorrow),
       // Today's alarms, including ones that have already rung.
       alarms: (await planAlarms(db, today)).filter((alarm) => alarm.at < tomorrow),
-      // When this was loaded, to grey out alarms that have rung.
-      loadedAt: Date.now(),
     }),
   );
 
@@ -127,10 +133,11 @@ export default function TodayScreen() {
         ) : null}
       </View>
       <ScrollView contentContainerStyle={styles.content}>
+        {holiday ? <HolidayBanner name={holiday} /> : null}
         {showingAlarms ? (
           <Section title="Alarms today">
             {alarms.map((alarm) => (
-              <AlarmRow key={alarm.id} alarm={alarm} now={data?.loadedAt ?? 0} />
+              <AlarmRow key={alarm.id} alarm={alarm} now={now} />
             ))}
             <ThemedText type="small" themeColor="textSecondary" style={styles.hint}>
               Tap an alarm to edit its {alarms.some((a) => a.ownerType === 'event') ? 'event or task' : 'task'} or

@@ -7,6 +7,7 @@ import { AlarmField } from '@/components/alarm-field';
 import { ChipGroup } from '@/components/chip';
 import { ChoiceDialog, type Choice } from '@/components/choice-dialog';
 import { DateTimeField } from '@/components/date-time-field';
+import { ClearTextButton } from '@/components/clear-text-button';
 import { EditorLayout, HeaderTextButton, leaveEditor } from '@/components/editor';
 import { EmptyState } from '@/components/empty-state';
 import { FormRow, FormSection, FormSwitch, FormTextInput } from '@/components/form';
@@ -348,7 +349,9 @@ function EventEditor({ initial, existing }: { initial: Draft; existing?: Existin
         ) : null}
       </FormSection>
 
-      <FormSection label="Notes">
+      <FormSection
+        label="Notes"
+        action={<ClearTextButton text={draft.notes} onChange={(notes) => update({ notes })} />}>
         <FormTextInput
           value={draft.notes}
           onChangeText={(notes) => update({ notes })}

@@ -9,6 +9,7 @@ import { KeyboardProvider } from 'react-native-keyboard-controller';
 
 import { BRAND_FILES } from '@/constants/fonts';
 import { fontStyle } from '@/constants/theme';
+import { ToastHost } from '@/components/toast';
 import { DatabaseProvider } from '@/db/database-provider';
 import { SettingsProvider } from '@/hooks/use-settings';
 import { AppThemeProvider, useAppTheme } from '@/hooks/use-theme';
@@ -83,6 +84,7 @@ function ThemedNavigation() {
         <Stack.Screen name="category/[id]" options={{ title: 'Category' }} />
         <Stack.Screen name="category-editor/[id]" options={{ title: 'Category' }} />
       </Stack>
+      <ToastHost />
     </ThemeProvider>
   );
 }

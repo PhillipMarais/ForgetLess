@@ -5,6 +5,7 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import type { DayMarks } from '@/components/day-dots';
 import { DayTimeline } from '@/components/day-timeline';
 import { EventRow } from '@/components/event-row';
+import { HolidayBanner } from '@/components/holiday-banner';
 import { Icon, Icons } from '@/components/icon';
 import { IconButton } from '@/components/icon-button';
 import { MonthGrid } from '@/components/month-grid';
@@ -36,6 +37,7 @@ import {
   startOfWeek,
   weekDays,
 } from '@/lib/dates';
+import { holidaysBetween } from '@/lib/holidays';
 
 const VIEWS = [
   { label: 'Day', value: 'day' },
@@ -127,7 +129,11 @@ export default function CalendarScreen() {
     for (const day of daysTouched(occurrence, from, to)) eventDays.add(day);
   }
   for (const task of data?.tasks ?? []) taskDays.add(startOfDay(task.dueAt!));
-  const marks: DayMarks = { events: eventDays, tasks: taskDays };
+  const marks: DayMarks = {
+    events: eventDays,
+    tasks: taskDays,
+    holidays: holidaysBetween(settings.holidayRegion, from, to),
+  };
 
   const itemsOn = (day: number): DayItems => {
     const end = addDays(day, 1);
@@ -190,6 +196,7 @@ export default function CalendarScreen() {
             items={itemsOn(selectedDay)}
             loaded={data !== undefined}
             wide={wide}
+            holiday={marks.holidays.get(selectedDay)}
           />
         ) : null}
         {view === 'week' ? (
@@ -277,12 +284,13 @@ type MonthViewProps = {
   items: DayItems;
   loaded: boolean;
   wide: boolean;
+  holiday?: string;
 };
 
 /** Month grid with the selected day's agenda below it, or beside it on wide screens. */
-function MonthView({ day, onSelectDay, marks, items, loaded, wide }: MonthViewProps) {
+function MonthView({ day, onSelectDay, marks, items, loaded, wide, holiday }: MonthViewProps) {
   const grid = <MonthGrid month={day} selectedDay={day} onSelectDay={onSelectDay} marks={marks} />;
-  const agenda = <DayAgenda day={day} items={items} loaded={loaded} />;
+  const agenda = <DayAgenda day={day} items={items} loaded={loaded} holiday={holiday} />;
 
   if (wide) {
     return (
@@ -330,7 +338,14 @@ function WeekView({ day, marks, itemsOn, loaded, onOpenDay }: WeekViewProps) {
       <WeekStrip week={day} selectedDay={day} onSelectDay={onOpenDay} marks={marks} />
       <ScrollView contentContainerStyle={styles.scroll}>
         {weekDays(day).map((weekDay) => (
-          <DayAgenda key={weekDay} day={weekDay} items={itemsOn(weekDay)} loaded={loaded} compact />
+          <DayAgenda
+            key={weekDay}
+            day={weekDay}
+            items={itemsOn(weekDay)}
+            loaded={loaded}
+            holiday={marks.holidays.get(weekDay)}
+            compact
+          />
         ))}
       </ScrollView>
     </View>
@@ -373,6 +388,7 @@ function DayView({ day, onSelectDay, marks, items }: DayViewProps) {
   return (
     <View style={styles.fill}>
       {showStrip ? <WeekStrip week={day} selectedDay={day} onSelectDay={onSelectDay} marks={marks} /> : null}
+      {marks.holidays.has(day) ? <HolidayBanner name={marks.holidays.get(day)!} /> : null}
       <View style={styles.dayTabs}>
         <SegmentedControl label="Show for this day" options={tabs} value={tab} onChange={setTab} />
       </View>
@@ -457,10 +473,12 @@ type DayAgendaProps = {
   loaded: boolean;
   /** Week view: a shorter date label and a short "Nothing planned". */
   compact?: boolean;
+  /** The public holiday on this day, if any. */
+  holiday?: string;
 };
 
 /** One day's events and tasks under a date label; today's is shaded with an accent edge. */
-function DayAgenda({ day, items, loaded, compact }: DayAgendaProps) {
+function DayAgenda({ day, items, loaded, compact, holiday }: DayAgendaProps) {
   const theme = useTheme();
   const empty = items.events.length === 0 && items.tasks.length === 0;
   const isToday = day === startOfDay();
@@ -483,6 +501,7 @@ function DayAgenda({ day, items, loaded, compact }: DayAgendaProps) {
           </View>
         ) : null}
       </View>
+      {holiday ? <HolidayBanner name={holiday} /> : null}
       {loaded && empty ? (
         <ThemedText type="small" themeColor="textSecondary" style={styles.empty}>
           {compact ? 'Nothing planned' : 'Nothing planned. Tap + or double-tap the day to add an event.'}

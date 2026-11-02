@@ -7,7 +7,7 @@ import { useTheme } from '@/hooks/use-theme';
 
 type CoverThumbProps = {
   uri: string;
-  /** Total pictures; shown as a badge on the top-right corner. */
+  /** Total pictures; shown as a badge on the top-right corner when there's more than one. */
   count: number;
   size?: number;
 };
@@ -25,11 +25,13 @@ export function CoverThumb({ uri, count, size = 48 }: CoverThumbProps) {
         style={[styles.image, { width: size, height: size, backgroundColor: theme.backgroundElement }]}
         contentFit="cover"
       />
-      <View style={[styles.badge, { backgroundColor: theme.accent, borderColor: theme.background }]}>
-        <ThemedText type="label" themeColor="onAccent" style={styles.badgeText}>
-          {count > 99 ? '99+' : String(count)}
-        </ThemedText>
-      </View>
+      {count > 1 ? (
+        <View style={[styles.badge, { backgroundColor: theme.accent, borderColor: theme.background }]}>
+          <ThemedText type="label" themeColor="onAccent" style={styles.badgeText}>
+            {count > 99 ? '99+' : String(count)}
+          </ThemedText>
+        </View>
+      ) : null}
     </View>
   );
 }

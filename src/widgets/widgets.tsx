@@ -333,6 +333,7 @@ export type CalendarData = {
   days: number[];
   eventDays: Set<number>;
   taskDays: Set<number>;
+  holidays: Map<number, string>;
 };
 
 export function CalendarWidget({
@@ -394,7 +395,13 @@ export function CalendarWidget({
                     style={{
                       fontSize: Math.min(14, Math.round(circle * 0.45)),
                       fontFamily: isToday ? WidgetFonts.bodyBold : WidgetFonts.body,
-                      color: isToday ? colors.onAccent : inMonth ? colors.text : colors.textSecondary,
+                      color: isToday
+                        ? colors.onAccent
+                        : data.holidays.has(day)
+                          ? colors.danger
+                          : inMonth
+                            ? colors.text
+                            : colors.textSecondary,
                     }}
                   />
                 </FlexWidget>

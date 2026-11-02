@@ -1,8 +1,8 @@
-import type { PropsWithChildren, ReactNode } from 'react';
+import { useState, type PropsWithChildren, type ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
+import Animated, { FadeIn } from 'react-native-reanimated';
 
 import { Icon, Icons } from '@/components/icon';
-
 import { ThemedText } from '@/components/themed-text';
 import { MaxContentWidth, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -12,15 +12,54 @@ export function SettingsPage({ children }: PropsWithChildren) {
   return <ScrollView contentContainerStyle={styles.page}>{children}</ScrollView>;
 }
 
-/** A labelled card of related settings. */
-export function SettingsGroup({ label, children }: PropsWithChildren<{ label: string }>) {
+type SettingsGroupProps = PropsWithChildren<{
+  label: string;
+  /**
+   * Fold the group away behind a header (an accordion) that shows `summary`, the current
+   * choice. Starts closed unless `defaultOpen`.
+   */
+  collapsible?: boolean;
+  summary?: string;
+  defaultOpen?: boolean;
+}>;
+
+/** A labelled card of related settings, optionally folding away like an accordion. */
+export function SettingsGroup({ label, collapsible, summary, defaultOpen = false, children }: SettingsGroupProps) {
   const theme = useTheme();
+  const [open, setOpen] = useState(defaultOpen);
+
+  if (!collapsible) {
+    return (
+      <View style={styles.group}>
+        <ThemedText type="label" style={styles.groupLabel}>
+          {label}
+        </ThemedText>
+        <View style={[styles.card, { backgroundColor: theme.backgroundElement }]}>{children}</View>
+      </View>
+    );
+  }
+
   return (
-    <View style={styles.group}>
-      <ThemedText type="label" style={styles.groupLabel}>
-        {label}
-      </ThemedText>
-      <View style={[styles.card, { backgroundColor: theme.backgroundElement }]}>{children}</View>
+    <View style={[styles.card, { backgroundColor: theme.backgroundElement }]}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ expanded: open }}
+        accessibilityLabel={summary ? `${label}: ${summary}` : label}
+        onPress={() => setOpen((value) => !value)}
+        style={({ pressed }) => [styles.accordionHeader, pressed && styles.pressed]}>
+        <View style={styles.text}>
+          <ThemedText type="label">{label}</ThemedText>
+          {summary ? <ThemedText type="defaultBold">{summary}</ThemedText> : null}
+        </View>
+        <Icon name={open ? Icons.collapse : Icons.expand} size={24} color="textSecondary" />
+      </Pressable>
+      {open ? (
+        <Animated.View
+          entering={FadeIn.duration(180)}
+          style={{ borderTopColor: theme.border, borderTopWidth: StyleSheet.hairlineWidth }}>
+          {children}
+        </Animated.View>
+      ) : null}
     </View>
   );
 }
@@ -117,6 +156,12 @@ export function SettingChoices<T extends string>({ label, options, value, onChan
 const styles = StyleSheet.create({
   disabled: {
     opacity: 0.45,
+  },
+  accordionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.three,
+    padding: Spacing.three,
   },
   pressed: {
     opacity: 0.8,

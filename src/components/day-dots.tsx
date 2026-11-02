@@ -2,14 +2,22 @@ import { StyleSheet, View } from 'react-native';
 
 import { useTheme } from '@/hooks/use-theme';
 
-/** Days with events and days with tasks; each gets its own coloured dot. */
-export type DayMarks = { events: ReadonlySet<number>; tasks: ReadonlySet<number> };
+/**
+ * Days with events and days with tasks (each gets its own coloured dot), and public holidays
+ * (their day number is drawn in the warning colour).
+ */
+export type DayMarks = {
+  events: ReadonlySet<number>;
+  tasks: ReadonlySet<number>;
+  holidays: ReadonlyMap<number, string>;
+};
 
-/** ", has events and tasks", for screen readers. */
+/** ", Heritage Day, has events and tasks", for screen readers. */
 export function describeMarks(marks: DayMarks, day: number) {
+  const holiday = marks.holidays.get(day);
   const kinds = [marks.events.has(day) ? 'events' : null, marks.tasks.has(day) ? 'tasks' : null];
   const named = kinds.filter((kind) => kind !== null);
-  return named.length > 0 ? `, has ${named.join(' and ')}` : '';
+  return `${holiday ? `, ${holiday}` : ''}${named.length > 0 ? `, has ${named.join(' and ')}` : ''}`;
 }
 
 /** An accent dot for events and a text-coloured dot for tasks, side by side. */

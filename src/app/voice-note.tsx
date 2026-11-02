@@ -6,6 +6,7 @@ import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ChipGroup } from '@/components/chip';
+import { ClearTextButton } from '@/components/clear-text-button';
 import { DictationButton } from '@/components/dictation-button';
 import { KEYBOARD_GAP, leaveEditor } from '@/components/editor';
 import { Icons } from '@/components/icon';
@@ -119,6 +120,9 @@ export default function VoiceNoteScreen() {
             label="Speak"
             languageName={dictation.languageName}
           />
+          <View style={styles.clearRow}>
+            <ClearTextButton text={body} onChange={setBody} what="Note text" />
+          </View>
           <TextInput
             value={body}
             onChangeText={setBody}
@@ -187,6 +191,10 @@ const styles = StyleSheet.create({
   },
   section: {
     gap: Spacing.two,
+  },
+  clearRow: {
+    alignItems: 'flex-end',
+    marginBottom: -Spacing.two,
   },
   body: {
     minHeight: 200,

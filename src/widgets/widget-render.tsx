@@ -8,6 +8,7 @@ import { listNotes, type Note } from '@/db/notes';
 import { loadSettings, type Settings } from '@/db/settings';
 import { listTaskEntriesBetween, listTasks, listTodayTasks, type Task } from '@/db/tasks';
 import { addDays, monthGridDays, startOfDay, startOfMonth } from '@/lib/dates';
+import { holidaysBetween } from '@/lib/holidays';
 
 import { widgetPalettes, type WidgetColors } from './widget-theme';
 import {
@@ -48,8 +49,10 @@ export async function renderWidgetByName(
   settings?: Settings,
 ): Promise<WidgetRepresentation> {
   const database = db ?? (await widgetDatabase());
-  const palettes = widgetPalettes(settings ?? (await loadSettings(database)));
-  const data = await loadWidgetData(name as WidgetName, database);
+
+  const resolved = settings ?? (await loadSettings(database));
+  const data = await loadWidgetData(name as WidgetName, database, resolved);
+  const palettes = widgetPalettes(resolved);
   return { light: drawWidget(data, palettes.light, size), dark: drawWidget(data, palettes.dark, size) };
 }
 
@@ -76,7 +79,7 @@ function drawWidget(widget: WidgetData, colors: WidgetColors, size: Size) {
 }
 
 /** Loads what the widget shows; drawn once each for light and dark mode. */
-async function loadWidgetData(name: WidgetName, db: SQLiteDatabase): Promise<WidgetData> {
+async function loadWidgetData(name: WidgetName, db: SQLiteDatabase, settings: Settings): Promise<WidgetData> {
   const today = startOfDay();
   const tomorrow = addDays(today, 1);
 
@@ -102,7 +105,8 @@ async function loadWidgetData(name: WidgetName, db: SQLiteDatabase): Promise<Wid
       }
     }
     const taskDays = new Set((await listTaskEntriesBetween(db, from, to)).map((task) => startOfDay(task.dueAt!)));
-    return { name, data: { month: startOfMonth(today), days, eventDays, taskDays } };
+    const holidays = holidaysBetween(settings.holidayRegion, from, to);
+    return { name, data: { month: startOfMonth(today), days, eventDays, taskDays, holidays } };
   }
   return { name: 'VoiceNote' };
 }
