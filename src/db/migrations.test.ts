@@ -17,7 +17,8 @@ describe('migrate', () => {
     const rows = await db.getAllAsync<{ name: string }>(
       "SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name",
     );
-    expect(rows.map((row) => row.name)).toEqual([...TABLES].sort());
+    // settings is device-local, so it has no sync columns and isn't in TABLES.
+    expect(rows.map((row) => row.name)).toEqual([...TABLES, 'settings'].sort());
     expect(await userVersion(db)).toBeGreaterThan(0);
   });
 

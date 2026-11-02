@@ -3,8 +3,11 @@ import {
   addMonths,
   daysFromToday,
   formatDueLabel,
+  formatWeekRange,
   monthGridDays,
   startOfDay,
+  startOfWeek,
+  weekDays,
   withTimeOf,
 } from './dates';
 
@@ -98,5 +101,18 @@ describe('withTimeOf', () => {
   it("puts one time's hours and minutes on another day", () => {
     const result = new Date(withTimeOf(new Date(2026, 0, 5).getTime(), NOW.getTime()));
     expect([result.getDate(), result.getHours(), result.getMinutes()]).toEqual([5, 15, 30]);
+  });
+});
+
+describe('startOfWeek / weekDays / formatWeekRange', () => {
+  it('starts weeks on Monday', () => {
+    // Sunday 8 Nov 2026 belongs to the week of Monday 2 Nov.
+    expect(new Date(startOfWeek(new Date(2026, 10, 8, 18).getTime())).getDate()).toBe(2);
+    expect(weekDays(NOW.getTime()).map((day) => new Date(day).getDate())).toEqual([2, 3, 4, 5, 6, 7, 8]);
+  });
+
+  it('labels a week inside one month and across two', () => {
+    expect(formatWeekRange(NOW.getTime())).toMatch(/^2 – 8 Nov/);
+    expect(formatWeekRange(new Date(2026, 10, 30).getTime())).toMatch(/^30 Nov – 6 Dec/);
   });
 });

@@ -121,7 +121,7 @@ function TaskEditor({ task, attachments }: { task: Task; attachments: Attachment
         onChangeText={(title) => update({ title })}
         placeholder="Title"
         accessibilityLabel="Title"
-        style={styles.title}
+        variant="title"
       />
 
       <FormSection>
@@ -168,13 +168,7 @@ function TaskEditor({ task, attachments }: { task: Task; attachments: Attachment
       ) : null}
 
       <FormSection label="Pictures">
-        <PhotoStrip
-          photos={photos.photos}
-          onAdd={photos.add}
-          onRemove={photos.remove}
-          busy={photos.busy}
-          error={photos.error}
-        />
+        <PhotoStrip draft={photos} />
       </FormSection>
 
       <FormSection label="Notes">
@@ -200,10 +194,6 @@ function TaskEditor({ task, attachments }: { task: Task; attachments: Attachment
 const styles = StyleSheet.create({
   fill: {
     flex: 1,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: 600,
   },
   delete: {
     alignItems: 'center',

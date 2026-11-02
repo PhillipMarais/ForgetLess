@@ -1,57 +1,83 @@
-import { Platform, StyleSheet, Text, type TextProps } from 'react-native';
+import { StyleSheet, Text, type TextProps, type TextStyle } from 'react-native';
 
-import { Fonts, ThemeColor } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { fontStyle, type FontRole, type FontWeight, type ThemeColor } from '@/constants/theme';
+import { useAppTheme } from '@/hooks/use-theme';
+
+export type TextType =
+  | 'title'
+  | 'subtitle'
+  | 'heading'
+  | 'default'
+  | 'defaultBold'
+  | 'small'
+  | 'smallBold'
+  | 'label'
+  | 'code';
 
 export type ThemedTextProps = TextProps & {
-  type?: 'default' | 'title' | 'small' | 'smallBold' | 'subtitle' | 'link' | 'linkPrimary' | 'code';
+  type?: TextType;
   themeColor?: ThemeColor;
 };
 
-export function ThemedText({ style, type = 'default', themeColor, ...rest }: ThemedTextProps) {
-  const theme = useTheme();
+const FONTS: Record<TextType, [FontRole, FontWeight]> = {
+  title: ['display', 700],
+  subtitle: ['display', 600],
+  heading: ['display', 600],
+  default: ['body', 400],
+  defaultBold: ['body', 600],
+  small: ['body', 400],
+  smallBold: ['body', 600],
+  label: ['mono', 500],
+  code: ['mono', 400],
+};
 
-  return <Text style={[{ color: theme[themeColor ?? 'text'] }, styles[type], style]} {...rest} />;
+export function ThemedText({ style, type = 'default', themeColor, ...rest }: ThemedTextProps) {
+  const theme = useAppTheme();
+  const [role, weight] = FONTS[type];
+  const color = theme.colors[themeColor ?? (type === 'label' ? 'label' : 'text')];
+
+  return (
+    <Text style={[{ color }, fontStyle(theme, role, weight), styles[type], style]} {...rest} />
+  );
 }
 
-const styles = StyleSheet.create({
-  small: {
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: 500,
+const styles = StyleSheet.create<Record<TextType, TextStyle>>({
+  title: {
+    fontSize: 34,
+    lineHeight: 40,
   },
-  smallBold: {
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: 700,
+  subtitle: {
+    fontSize: 30,
+    lineHeight: 36,
+  },
+  heading: {
+    fontSize: 20,
+    lineHeight: 26,
   },
   default: {
     fontSize: 16,
     lineHeight: 24,
-    fontWeight: 500,
   },
-  title: {
-    fontSize: 48,
-    fontWeight: 600,
-    lineHeight: 52,
+  defaultBold: {
+    fontSize: 16,
+    lineHeight: 24,
   },
-  subtitle: {
-    fontSize: 32,
-    lineHeight: 44,
-    fontWeight: 600,
-  },
-  link: {
-    lineHeight: 30,
+  small: {
     fontSize: 14,
+    lineHeight: 20,
   },
-  linkPrimary: {
-    lineHeight: 30,
+  smallBold: {
     fontSize: 14,
-    color: '#3c87f7',
+    lineHeight: 20,
+  },
+  label: {
+    fontSize: 12,
+    lineHeight: 16,
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
   },
   code: {
-    fontFamily: Fonts.mono,
-    fontWeight: Platform.select({ android: 700 }) ?? 500,
     fontSize: 12,
+    lineHeight: 16,
   },
 });

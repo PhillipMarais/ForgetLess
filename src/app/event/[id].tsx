@@ -61,9 +61,14 @@ function at9(time: number) {
   return new Date(time).setHours(9, 0, 0, 0);
 }
 
-function newDraft(day: number | undefined): Draft {
+/**
+ * Defaults for a new event: an exact `start` (e.g. a tapped hour on the timeline), else
+ * 09:00 on a chosen `day`, else the next whole hour today.
+ */
+function newDraft(day: number | undefined, start: number | undefined): Draft {
   const today = startOfDay();
-  const startAt = day === undefined || day === today ? nextHour() : at9(day);
+  const startAt =
+    start !== undefined ? start : day === undefined || day === today ? nextHour() : at9(day);
   return { title: '', notes: '', allDay: false, startAt, endAt: startAt + HOUR, repeat: null };
 }
 
@@ -90,7 +95,12 @@ function toInput(draft: Draft): EventInput {
 }
 
 export default function EventScreen() {
-  const params = useLocalSearchParams<{ id: string; occurrence?: string; date?: string }>();
+  const params = useLocalSearchParams<{
+    id: string;
+    occurrence?: string;
+    date?: string;
+    start?: string;
+  }>();
   const db = useSQLiteContext();
   const [existing, setExisting] = useState<Existing | null | undefined>(undefined);
   const isNew = params.id === 'new';
@@ -113,7 +123,8 @@ export default function EventScreen() {
 
   if (isNew) {
     const day = params.date ? Number(params.date) : undefined;
-    return <EventEditor initial={newDraft(day)} />;
+    const start = params.start ? Number(params.start) : undefined;
+    return <EventEditor initial={newDraft(day, start)} />;
   }
   if (existing === undefined) return <ThemedView style={styles.fill} />;
   if (existing === null) {
@@ -228,7 +239,7 @@ function EventEditor({ initial, existing }: { initial: Draft; existing?: Existin
         placeholder="Title"
         accessibilityLabel="Title"
         autoFocus={!existing}
-        style={styles.title}
+        variant="title"
       />
 
       <FormSection>
@@ -272,13 +283,7 @@ function EventEditor({ initial, existing }: { initial: Draft; existing?: Existin
       </FormSection>
 
       <FormSection label="Pictures">
-        <PhotoStrip
-          photos={photos.photos}
-          onAdd={photos.add}
-          onRemove={photos.remove}
-          busy={photos.busy}
-          error={photos.error}
-        />
+        <PhotoStrip draft={photos} />
         {repeating || draft.repeat ? (
           <ThemedText type="small" themeColor="textSecondary">
             Pictures show on every occurrence.
@@ -326,10 +331,6 @@ function EventEditor({ initial, existing }: { initial: Draft; existing?: Existin
 const styles = StyleSheet.create({
   fill: {
     flex: 1,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: 600,
   },
   delete: {
     alignItems: 'center',

@@ -55,6 +55,38 @@ export function addMonths(time: number, months: number) {
   return date.getTime();
 }
 
+/** Midnight on the first day of the week (WEEK_STARTS_ON) containing `time`. */
+export function startOfWeek(time: number) {
+  const day = startOfDay(time);
+  const offset = (new Date(day).getDay() - WEEK_STARTS_ON + 7) % 7;
+  return addDays(day, -offset);
+}
+
+/** The 7 day starts of the week containing `time`. */
+export function weekDays(time: number) {
+  const first = startOfWeek(time);
+  return Array.from({ length: 7 }, (_, index) => addDays(first, index));
+}
+
+/** "2 – 8 Nov", or "30 Nov – 6 Dec" when the week spans two months. */
+export function formatWeekRange(time: number) {
+  const first = new Date(startOfWeek(time));
+  const last = new Date(addDays(first.getTime(), 6));
+  const month = (date: Date) => date.toLocaleDateString(undefined, { month: 'short' });
+  return first.getMonth() === last.getMonth()
+    ? `${first.getDate()} – ${last.getDate()} ${month(last)}`
+    : `${first.getDate()} ${month(first)} – ${last.getDate()} ${month(last)}`;
+}
+
+/** "Mon 2 Nov". */
+export function formatShortDay(time: number) {
+  return new Date(time).toLocaleDateString(undefined, {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+  });
+}
+
 /** 42 day starts (6 full weeks) covering the month containing `time`, for a month grid. */
 export function monthGridDays(time: number) {
   const first = startOfMonth(time);

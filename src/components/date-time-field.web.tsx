@@ -1,8 +1,8 @@
 import type { ChangeEvent } from 'react';
 
 import type { DateTimeFieldProps } from '@/components/date-time-field-shared';
-import { Fonts, Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { fontStyle, Radius, Spacing } from '@/constants/theme';
+import { useAppTheme } from '@/hooks/use-theme';
 
 const pad = (value: number) => String(value).padStart(2, '0');
 
@@ -15,7 +15,9 @@ function toInputValue(mode: DateTimeFieldProps['mode'], value: number) {
 
 /** The browser's own date/time input, so the web preview has a real picker. */
 export function DateTimeField({ mode, value, onChange, label }: DateTimeFieldProps) {
-  const theme = useTheme();
+  const theme = useAppTheme();
+  const { colors } = theme;
+  const font = fontStyle(theme, 'body', 400);
 
   const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
     const raw = event.target.value;
@@ -38,13 +40,13 @@ export function DateTimeField({ mode, value, onChange, label }: DateTimeFieldPro
       value={toInputValue(mode, value)}
       onChange={handleChange}
       style={{
-        fontFamily: Fonts.sans,
+        fontFamily: font.fontFamily ?? 'inherit',
         fontSize: 16,
-        color: theme.text,
-        backgroundColor: theme.backgroundElement,
-        colorScheme: 'light dark',
+        color: colors.text,
+        backgroundColor: colors.backgroundElement,
+        colorScheme: theme.dark ? 'dark' : 'light',
         border: 'none',
-        borderRadius: Spacing.two,
+        borderRadius: Radius.small,
         padding: `${Spacing.two}px ${Spacing.three}px`,
       }}
     />

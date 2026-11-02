@@ -1,7 +1,10 @@
 import { router } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
+import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
+import { ConfirmDialog } from '@/components/choice-dialog';
+import { CoverThumb } from '@/components/cover-thumb';
 import { Icon, Icons } from '@/components/icon';
 import { IconButton } from '@/components/icon-button';
 import { ThemedText } from '@/components/themed-text';
@@ -13,6 +16,7 @@ import { daysFromToday, formatDueLabel } from '@/lib/dates';
 export function TaskRow({ task }: { task: Task }) {
   const db = useSQLiteContext();
   const theme = useTheme();
+  const [confirming, setConfirming] = useState(false);
   const done = task.completedAt !== null;
   const overdue = !done && task.dueAt !== null && daysFromToday(task.dueAt) < 0;
 
@@ -35,30 +39,40 @@ export function TaskRow({ task }: { task: Task }) {
         accessibilityRole="button"
         accessibilityLabel={`Edit ${task.title}`}
         onPress={() => router.push({ pathname: '/task/[id]', params: { id: task.id } })}
-        style={({ pressed }) => [styles.text, pressed && styles.pressed]}>
-        <ThemedText themeColor={done ? 'textSecondary' : 'text'} style={done && styles.doneTitle}>
-          {task.title}
-        </ThemedText>
-        {task.dueAt !== null || task.attachmentCount > 0 ? (
-          <View style={styles.due}>
-            {task.dueAt !== null ? (
+        style={({ pressed }) => [styles.main, pressed && styles.pressed]}>
+        <View style={styles.text}>
+          <ThemedText themeColor={done ? 'textSecondary' : 'text'} style={done && styles.doneTitle}>
+            {task.title}
+          </ThemedText>
+          {task.dueAt !== null ? (
+            <View style={styles.meta}>
               <ThemedText type="small" themeColor={overdue ? 'danger' : 'textSecondary'}>
                 {formatDueLabel(task.dueAt, task.dueAllDay)}
               </ThemedText>
-            ) : null}
-            {task.rrule ? <Icon name={Icons.repeat} size={14} color="textSecondary" /> : null}
-            {task.attachmentCount > 0 ? (
-              <Icon name={Icons.photo} size={14} color="textSecondary" />
-            ) : null}
-          </View>
-        ) : null}
+              {task.rrule ? <Icon name={Icons.repeat} size={14} color="textSecondary" /> : null}
+            </View>
+          ) : null}
+        </View>
+        {task.coverUri ? <CoverThumb uri={task.coverUri} count={task.attachmentCount} /> : null}
       </Pressable>
       <IconButton
         icon={Icons.delete}
         label={`Delete ${task.title}`}
         color="textSecondary"
-        onPress={() => deleteTask(db, task.id)}
+        onPress={() => setConfirming(true)}
       />
+      {confirming ? (
+        <ConfirmDialog
+          visible
+          title={`Delete “${task.title}”?`}
+          confirmLabel="Delete task"
+          onConfirm={() => {
+            setConfirming(false);
+            deleteTask(db, task.id);
+          }}
+          onCancel={() => setConfirming(false)}
+        />
+      ) : null}
     </View>
   );
 }
@@ -81,13 +95,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  main: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.three,
+    minHeight: 48,
+  },
   text: {
     flex: 1,
   },
   pressed: {
     opacity: 0.6,
   },
-  due: {
+  meta: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.one,

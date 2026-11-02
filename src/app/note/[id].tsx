@@ -1,171 +1,198 @@
-import { Stack, useLocalSearchParams } from 'expo-router';
+import { Stack, useLocalSearchParams, usePreventRemove } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useEffect, useRef, useState } from 'react';
-import { StyleSheet, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 
-import { leaveEditor } from '@/components/editor';
+import { ChoiceDialog, ConfirmDialog } from '@/components/choice-dialog';
+import { HeaderTextButton, KEYBOARD_GAP, leaveEditor } from '@/components/editor';
 import { EmptyState } from '@/components/empty-state';
 import { Icons } from '@/components/icon';
 import { IconButton } from '@/components/icon-button';
 import { PhotoStrip } from '@/components/photo-strip';
+import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { MaxContentWidth, Spacing } from '@/constants/theme';
-import { listAttachments } from '@/db/attachments';
-import { deleteNote, getNote, setNotePinned, updateNote, type Note } from '@/db/notes';
-import { useLiveQuery } from '@/db/use-live-query';
-import { usePhotoPicking } from '@/hooks/use-photo-picking';
-import { useTheme } from '@/hooks/use-theme';
-import { addPhoto, prepareDraftPhotos, removePhoto } from '@/lib/photos';
+import { fontStyle, MaxContentWidth, Spacing } from '@/constants/theme';
+import { listAttachments, type Attachment } from '@/db/attachments';
+import { createNote, deleteNote, getNote, updateNote, type Note } from '@/db/notes';
+import { useDraftPhotos } from '@/hooks/use-draft-photos';
+import { useAppTheme } from '@/hooks/use-theme';
 
-const SAVE_DELAY_MS = 400;
+type Loaded = { note: Note | null; attachments: Attachment[] };
 
 export default function NoteScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const db = useSQLiteContext();
-  const [note, setNote] = useState<Note | null | undefined>(undefined);
+  const isNew = id === 'new';
+  const [loaded, setLoaded] = useState<Loaded | null | undefined>(
+    isNew ? { note: null, attachments: [] } : undefined,
+  );
 
-  // Loaded once rather than live: the editor owns the text while it's open.
   useEffect(() => {
+    if (isNew) return;
     let active = true;
-    getNote(db, id).then((loaded) => active && setNote(loaded));
+    (async () => {
+      const note = await getNote(db, id);
+      const attachments = note ? await listAttachments(db, 'note', note.id) : [];
+      if (active) setLoaded(note ? { note, attachments } : null);
+    })();
     return () => {
       active = false;
     };
-  }, [db, id]);
+  }, [db, id, isNew]);
 
-  if (note === undefined) return <ThemedView style={styles.container} />;
-  if (note === null) {
+  if (loaded === undefined) return <ThemedView style={styles.container} />;
+  if (loaded === null) {
     return (
       <ThemedView style={styles.container}>
         <EmptyState icon={Icons.notes} title="Note not found" message="It may have been deleted." />
       </ThemedView>
     );
   }
-  return <NoteEditor key={note.id} note={note} />;
+  return <NoteEditor key={id} {...loaded} />;
 }
 
-function NoteEditor({ note }: { note: Note }) {
+/**
+ * Notes save only when you tap Save. Leaving with unsaved changes asks whether to save
+ * or discard them; a new note that is never saved is never created.
+ */
+function NoteEditor({ note, attachments }: Loaded) {
   const db = useSQLiteContext();
-  const theme = useTheme();
-  const [title, setTitle] = useState(note.title);
-  const [body, setBody] = useState(note.body);
-  const [pinned, setPinned] = useState(note.pinned);
+  const theme = useAppTheme();
+  const { colors } = theme;
+  const [title, setTitle] = useState(note?.title ?? '');
+  const [body, setBody] = useState(note?.body ?? '');
+  const [pinned, setPinned] = useState(note?.pinned ?? false);
+  const photos = useDraftPhotos(attachments);
+  const [saving, setSaving] = useState(false);
+  const [leaving, setLeaving] = useState(false);
+  const [dialog, setDialog] = useState<'leave' | 'delete' | null>(null);
+  const blockedLeave = useRef<(() => void) | null>(null);
 
-  // Notes save as you type, so pictures are saved as soon as they are added or removed.
-  const { data: attachments = [] } = useLiveQuery(['attachments'], note.id, (db) =>
-    listAttachments(db, 'note', note.id),
-  );
-  const photoCount = useRef(note.attachmentCount);
-  useEffect(() => {
-    photoCount.current = attachments.length;
-  }, [attachments.length]);
+  const empty = !title.trim() && !body.trim() && photos.photos.length === 0;
+  const changed =
+    title !== (note?.title ?? '') ||
+    body !== (note?.body ?? '') ||
+    pinned !== (note?.pinned ?? false) ||
+    photos.changed;
+  // An empty new note has nothing worth keeping, so leaving it needs no question.
+  const dirty = changed && !(note === null && empty);
+  const canSave = dirty && !empty && !saving && !photos.busy;
 
-  const picking = usePhotoPicking(async (images) => {
-    for (const draft of await prepareDraftPhotos(images)) {
-      await addPhoto(db, 'note', note.id, draft.prepared!);
-    }
+  usePreventRemove(dirty && !leaving, ({ repeat }) => {
+    blockedLeave.current = repeat;
+    setDialog('leave');
   });
 
-  const removePicture = (key: string) => {
-    const attachment = attachments.find((item) => item.id === key);
-    if (attachment) removePhoto(db, attachment);
-  };
-
-  const latest = useRef({ title: note.title, body: note.body });
-  const pendingSave = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const deleted = useRef(false);
-
-  const edit = (changes: Partial<{ title: string; body: string }>) => {
-    latest.current = { ...latest.current, ...changes };
-    if (changes.title !== undefined) setTitle(changes.title);
-    if (changes.body !== undefined) setBody(changes.body);
-
-    clearTimeout(pendingSave.current);
-    pendingSave.current = setTimeout(() => {
-      pendingSave.current = undefined;
-      updateNote(db, note.id, latest.current);
-    }, SAVE_DELAY_MS);
-  };
-
-  // On leaving: flush an unsaved edit, and drop the note if it was left empty (no text or pictures).
+  // Leave once prevention is off: continue the blocked navigation, or go back after Save.
   useEffect(() => {
-    return () => {
-      const unsaved = pendingSave.current !== undefined;
-      clearTimeout(pendingSave.current);
-      if (deleted.current) return;
+    if (!leaving) return;
+    const resume = blockedLeave.current;
+    blockedLeave.current = null;
+    if (resume) resume();
+    else leaveEditor('/notes');
+  }, [leaving]);
 
-      const { title, body } = latest.current;
-      if (!title.trim() && !body.trim() && photoCount.current === 0) deleteNote(db, note.id);
-      else if (unsaved) updateNote(db, note.id, latest.current);
-    };
-  }, [db, note.id]);
+  const save = async () => {
+    setDialog(null);
+    setSaving(true);
+    const input = { title, body, pinned };
+    const noteId = note ? note.id : await createNote(db, input);
+    if (note) await updateNote(db, note.id, input);
+    await photos.save(db, 'note', noteId);
+    setLeaving(true);
+  };
 
-  const togglePinned = () => {
-    setPinned(!pinned);
-    setNotePinned(db, note.id, !pinned);
+  const discard = () => {
+    setDialog(null);
+    setLeaving(true);
   };
 
   const remove = async () => {
-    deleted.current = true;
-    clearTimeout(pendingSave.current);
-    await deleteNote(db, note.id);
-    leaveEditor('/notes');
+    setDialog(null);
+    if (note) await deleteNote(db, note.id);
+    setLeaving(true);
   };
 
   return (
     <ThemedView style={styles.container}>
       <Stack.Screen
         options={{
+          title: note ? 'Note' : 'New note',
           headerRight: () => (
             <View style={styles.headerActions}>
               <IconButton
                 icon={Icons.pin}
                 label={pinned ? 'Unpin note' : 'Pin note'}
                 color={pinned ? 'accent' : 'textSecondary'}
-                onPress={togglePinned}
+                onPress={() => setPinned(!pinned)}
               />
-              <IconButton
-                icon={Icons.delete}
-                label="Delete note"
-                color="danger"
-                onPress={remove}
-              />
+              <HeaderTextButton label="Save" onPress={save} disabled={!canSave} />
             </View>
           ),
         }}
       />
       <KeyboardAwareScrollView
-        bottomOffset={Spacing.four}
+        bottomOffset={KEYBOARD_GAP}
         contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
         keyboardDismissMode="interactive">
+        {dirty ? (
+          <View style={styles.unsaved} accessibilityLiveRegion="polite">
+            <View style={[styles.unsavedDot, { backgroundColor: colors.accent }]} />
+            <ThemedText type="small" themeColor="textSecondary">
+              Not saved yet
+            </ThemedText>
+          </View>
+        ) : null}
         <TextInput
           value={title}
-          onChangeText={(text) => edit({ title: text })}
+          onChangeText={setTitle}
           placeholder="Title"
-          placeholderTextColor={theme.textSecondary}
+          placeholderTextColor={colors.textSecondary}
           accessibilityLabel="Note title"
-          autoFocus={!note.title && !note.body}
-          style={[styles.title, { color: theme.text }]}
+          autoFocus={note === null}
+          style={[styles.title, fontStyle(theme, 'display', 600), { color: colors.text }]}
         />
-        <PhotoStrip
-          photos={attachments.map((attachment) => ({ key: attachment.id, uri: attachment.uri }))}
-          onAdd={picking.pick}
-          onRemove={removePicture}
-          busy={picking.busy}
-          error={picking.error}
-        />
+        <PhotoStrip draft={photos} />
         <TextInput
           value={body}
-          onChangeText={(text) => edit({ body: text })}
+          onChangeText={setBody}
           placeholder="Start writing…"
-          placeholderTextColor={theme.textSecondary}
+          placeholderTextColor={colors.textSecondary}
           accessibilityLabel="Note text"
           multiline
+          scrollEnabled={false}
           textAlignVertical="top"
-          style={[styles.body, { color: theme.text }]}
+          style={[styles.body, fontStyle(theme, 'body', 400), { color: colors.text }]}
         />
+        {note ? (
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => setDialog('delete')}
+            style={({ pressed }) => [styles.delete, pressed && styles.pressed]}>
+            <ThemedText themeColor="danger">Delete note</ThemedText>
+          </Pressable>
+        ) : null}
       </KeyboardAwareScrollView>
+
+      <ChoiceDialog
+        visible={dialog === 'leave'}
+        title="This note has unsaved changes."
+        choices={[
+          { label: 'Save', value: 'save' as const, disabled: !canSave },
+          { label: 'Discard changes', value: 'discard' as const, destructive: true },
+        ]}
+        onChoose={(choice) => (choice === 'save' ? save() : discard())}
+        onCancel={() => setDialog(null)}
+      />
+      <ConfirmDialog
+        visible={dialog === 'delete'}
+        title="Delete this note and its pictures?"
+        confirmLabel="Delete note"
+        onConfirm={remove}
+        onCancel={() => setDialog(null)}
+      />
     </ThemedView>
   );
 }
@@ -179,19 +206,36 @@ const styles = StyleSheet.create({
     maxWidth: MaxContentWidth,
     alignSelf: 'center',
     padding: Spacing.three,
-    gap: Spacing.two,
+    gap: Spacing.three,
   },
   headerActions: {
     flexDirection: 'row',
+    alignItems: 'center',
+  },
+  unsaved: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
+  unsavedDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
   },
   title: {
     fontSize: 24,
-    fontWeight: 600,
     paddingVertical: Spacing.one,
   },
   body: {
     fontSize: 16,
     lineHeight: 24,
-    minHeight: 300,
+    minHeight: 160,
+  },
+  delete: {
+    alignItems: 'center',
+    paddingVertical: Spacing.three,
+  },
+  pressed: {
+    opacity: 0.6,
   },
 });

@@ -15,10 +15,16 @@ export type Attachment = {
   width: number | null;
   height: number | null;
   byteSize: number | null;
+  /** Position among the owner's pictures; the lowest is the cover. */
+  sortOrder: number;
   createdAt: number;
 };
 
-export type NewAttachment = Omit<Attachment, 'id' | 'createdAt'> & { id?: string };
+export type NewAttachment = Omit<Attachment, 'id' | 'createdAt' | 'sortOrder'> & {
+  id?: string;
+  /** Defaults to after the owner's existing pictures. */
+  sortOrder?: number;
+};
 
 type AttachmentRow = {
   id: string;
@@ -29,6 +35,7 @@ type AttachmentRow = {
   width: number | null;
   height: number | null;
   byte_size: number | null;
+  sort_order: number;
   created_at: number;
 };
 
@@ -42,22 +49,26 @@ function toAttachment(row: AttachmentRow): Attachment {
     width: row.width,
     height: row.height,
     byteSize: row.byte_size,
+    sortOrder: row.sort_order,
     createdAt: row.created_at,
   };
 }
 
+const PICTURE_ORDER = 'sort_order ASC, created_at ASC, id ASC';
+
 /**
- * SQL for a `attachment_count` column on a list query, e.g.
- * `SELECT tasks.*, ${attachmentCountColumn('task', 'tasks')} FROM tasks`.
+ * SQL for `attachment_count` and `cover_uri` columns on a list query, e.g.
+ * `SELECT tasks.*, ${attachmentColumns('task', 'tasks')} FROM tasks`.
  * Both arguments are fixed strings from our own code, never user input.
  */
-export function attachmentCountColumn(ownerType: OwnerType, table: string) {
-  return `(SELECT COUNT(*) FROM attachments a
-           WHERE a.owner_type = '${ownerType}' AND a.owner_id = ${table}.id AND a.deleted_at IS NULL)
-          AS attachment_count`;
+export function attachmentColumns(ownerType: OwnerType, table: string) {
+  const ofOwner = `a.owner_type = '${ownerType}' AND a.owner_id = ${table}.id AND a.deleted_at IS NULL`;
+  return `(SELECT COUNT(*) FROM attachments a WHERE ${ofOwner}) AS attachment_count,
+          (SELECT a.uri FROM attachments a WHERE ${ofOwner} ORDER BY ${PICTURE_ORDER} LIMIT 1)
+          AS cover_uri`;
 }
 
-/** Oldest first, so pictures keep the order they were added in. */
+/** In display order; the first is the cover. */
 export async function listAttachments(
   db: SQLiteDatabase,
   ownerType: OwnerType,
@@ -66,7 +77,7 @@ export async function listAttachments(
   const rows = await db.getAllAsync<AttachmentRow>(
     `SELECT * FROM attachments
      WHERE owner_type = ? AND owner_id = ? AND deleted_at IS NULL
-     ORDER BY created_at ASC, id ASC`,
+     ORDER BY ${PICTURE_ORDER}`,
     ownerType,
     ownerId,
   );
@@ -78,8 +89,12 @@ export async function addAttachment(db: SQLiteDatabase, input: NewAttachment): P
   const timestamp = now();
   await db.runAsync(
     `INSERT INTO attachments
-       (id, owner_type, owner_id, uri, mime_type, width, height, byte_size, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (id, owner_type, owner_id, uri, mime_type, width, height, byte_size, sort_order,
+        created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?,
+       COALESCE(?, (SELECT MAX(sort_order) + 1 FROM attachments
+                    WHERE owner_type = ? AND owner_id = ? AND deleted_at IS NULL), 0),
+       ?, ?)`,
     id,
     input.ownerType,
     input.ownerId,
@@ -88,11 +103,29 @@ export async function addAttachment(db: SQLiteDatabase, input: NewAttachment): P
     input.width,
     input.height,
     input.byteSize,
+    input.sortOrder ?? null,
+    input.ownerType,
+    input.ownerId,
     timestamp,
     timestamp,
   );
   notifyChange('attachments');
   return id;
+}
+
+/** Saves a new order: `ids` from first (the cover) to last. */
+export async function setAttachmentOrder(db: SQLiteDatabase, ids: readonly string[]) {
+  const timestamp = now();
+  for (const [index, id] of ids.entries()) {
+    await db.runAsync(
+      'UPDATE attachments SET sort_order = ?, updated_at = ? WHERE id = ? AND sort_order != ?',
+      index,
+      timestamp,
+      id,
+      index,
+    );
+  }
+  notifyChange('attachments');
 }
 
 export async function deleteAttachment(db: SQLiteDatabase, id: string) {

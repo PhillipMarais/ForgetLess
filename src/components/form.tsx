@@ -2,15 +2,15 @@ import type { PropsWithChildren } from 'react';
 import { StyleSheet, Switch, TextInput, View, type TextInputProps } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { fontStyle, Radius, Spacing } from '@/constants/theme';
+import { useAppTheme, useTheme } from '@/hooks/use-theme';
 
 /** A labelled block in an editor form. */
 export function FormSection({ label, children }: PropsWithChildren<{ label?: string }>) {
   return (
     <View style={styles.section}>
       {label ? (
-        <ThemedText type="smallBold" themeColor="textSecondary">
+        <ThemedText type="label">
           {label}
         </ThemedText>
       ) : null}
@@ -52,17 +52,31 @@ export function FormSwitch({
   );
 }
 
-export function FormTextInput({ style, multiline, ...props }: TextInputProps) {
-  const theme = useTheme();
+/**
+ * A themed text field. Multi-line fields grow with their text instead of scrolling inside,
+ * so the screen can keep the line being typed above the keyboard.
+ */
+export function FormTextInput({
+  style,
+  multiline,
+  variant,
+  ...props
+}: TextInputProps & { /** 'title': larger, in the display font. */ variant?: 'title' }) {
+  const theme = useAppTheme();
+  const { colors } = theme;
   return (
     <TextInput
-      placeholderTextColor={theme.textSecondary}
+      placeholderTextColor={colors.textSecondary}
       multiline={multiline}
+      scrollEnabled={multiline ? false : undefined}
       textAlignVertical={multiline ? 'top' : undefined}
       style={[
         styles.input,
+        variant === 'title'
+          ? [fontStyle(theme, 'display', 600), styles.title]
+          : fontStyle(theme, 'body', 400),
         multiline && styles.multiline,
-        { color: theme.text, backgroundColor: theme.backgroundElement },
+        { color: colors.text, backgroundColor: colors.backgroundElement },
         style,
       ]}
       {...props}
@@ -91,9 +105,12 @@ const styles = StyleSheet.create({
   },
   input: {
     fontSize: 16,
-    borderRadius: Spacing.two,
+    borderRadius: Radius.medium,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
+  },
+  title: {
+    fontSize: 20,
   },
   multiline: {
     minHeight: 96,

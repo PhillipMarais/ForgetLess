@@ -2,7 +2,7 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 
 import { nextOccurrenceAfter } from '@/lib/recurrence';
 
-import { attachmentCountColumn, deleteAttachmentsFor } from './attachments';
+import { attachmentColumns, deleteAttachmentsFor } from './attachments';
 import { notifyChange } from './changes';
 import { currentTimeZone, newId, now } from './ids';
 
@@ -18,6 +18,8 @@ export type Task = {
   completedAt: number | null;
   sortOrder: number;
   attachmentCount: number;
+  /** The first picture, shown on list rows; null when there are none. */
+  coverUri: string | null;
   createdAt: number;
   updatedAt: number;
 };
@@ -34,11 +36,12 @@ type TaskRow = {
   completed_at: number | null;
   sort_order: number;
   attachment_count: number;
+  cover_uri: string | null;
   created_at: number;
   updated_at: number;
 };
 
-const SELECT_TASKS = `SELECT tasks.*, ${attachmentCountColumn('task', 'tasks')} FROM tasks`;
+const SELECT_TASKS = `SELECT tasks.*, ${attachmentColumns('task', 'tasks')} FROM tasks`;
 
 function toTask(row: TaskRow): Task {
   return {
@@ -53,6 +56,7 @@ function toTask(row: TaskRow): Task {
     completedAt: row.completed_at,
     sortOrder: row.sort_order,
     attachmentCount: row.attachment_count,
+    coverUri: row.cover_uri,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -201,6 +205,34 @@ export async function setTaskCompleted(db: SQLiteDatabase, id: string, completed
   });
   notifyChange('tasks');
   notifyChange('occurrence_exceptions');
+}
+
+/**
+ * Moves open repeating tasks that were due before `today` to their first date on or after
+ * it, skipping the missed dates. Used when "Hold repeats until done" is off. Tasks whose
+ * series has ended stay overdue. Returns how many tasks moved.
+ */
+export async function skipMissedRepeats(db: SQLiteDatabase, today: number): Promise<number> {
+  const rows = await db.getAllAsync<TaskRow>(
+    `${SELECT_TASKS}
+     WHERE deleted_at IS NULL AND completed_at IS NULL AND rrule IS NOT NULL AND due_at < ?`,
+    today,
+  );
+  const timestamp = now();
+  let moved = 0;
+  for (const task of rows.map(toTask)) {
+    const next = nextOccurrenceAfter(task.rrule!, task.dueAt!, today - 1);
+    if (next === null) continue;
+    await db.runAsync(
+      'UPDATE tasks SET due_at = ?, updated_at = ? WHERE id = ?',
+      next,
+      timestamp,
+      task.id,
+    );
+    moved++;
+  }
+  if (moved > 0) notifyChange('tasks');
+  return moved;
 }
 
 export async function deleteTask(db: SQLiteDatabase, id: string) {

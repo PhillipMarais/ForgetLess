@@ -8,6 +8,9 @@ import type { SQLiteDatabase } from 'expo-sqlite';
  *   All-day items store local midnight of their day in that time zone.
  * - Repeating items store an RRULE string; per-occurrence edits live in `occurrence_exceptions`.
  *
+ * Exception: `settings` is a device-local key/value table (no sync columns); preferences
+ * describe this device, not the user's data.
+ *
  * Migrations are append-only: never edit a migration that has shipped, add a new one.
  * The index of a migration + 1 is the `PRAGMA user_version` it brings the database to.
  */
@@ -101,6 +104,17 @@ const MIGRATIONS: readonly string[] = [
     deleted_at INTEGER,
     UNIQUE (owner_type, owner_id, original_start)
   );
+  `,
+  // 2: user settings; picture order (the first picture is the cover)
+  `
+  CREATE TABLE settings (
+    key TEXT PRIMARY KEY NOT NULL,
+    value TEXT NOT NULL,
+    updated_at INTEGER NOT NULL
+  );
+
+  ALTER TABLE attachments ADD COLUMN sort_order REAL NOT NULL DEFAULT 0;
+  UPDATE attachments SET sort_order = created_at;
   `,
 ];
 

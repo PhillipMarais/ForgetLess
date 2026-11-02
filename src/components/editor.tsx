@@ -7,12 +7,15 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 
+/** Space kept between the line being typed and the top of the keyboard. */
+export const KEYBOARD_GAP = 120;
+
 /** Scrollable, centered column for an edit screen; keeps the focused field above the keyboard. */
 export function EditorLayout({ children }: PropsWithChildren) {
   return (
     <ThemedView style={styles.container}>
       <KeyboardAwareScrollView
-        bottomOffset={Spacing.four}
+        bottomOffset={KEYBOARD_GAP}
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="interactive">

@@ -48,15 +48,28 @@ it('marks the task complete when the checkbox is pressed', async () => {
   });
 });
 
-it('deletes the task when the delete button is pressed', async () => {
+it('asks before deleting, and deletes only once confirmed', async () => {
   const task = await addTask({ title: 'Temporary' });
   await render(<TaskRow task={task} />);
 
   await fireEvent.press(screen.getByRole('button', { name: 'Delete Temporary' }));
+  expect(await listTasks(mockDb)).toHaveLength(1);
 
+  await fireEvent.press(screen.getByRole('button', { name: 'Delete task' }));
   await waitFor(async () => {
     expect(await listTasks(mockDb)).toEqual([]);
   });
+});
+
+it('keeps the task when the delete is cancelled', async () => {
+  const task = await addTask({ title: 'Keep me' });
+  await render(<TaskRow task={task} />);
+
+  await fireEvent.press(screen.getByRole('button', { name: 'Delete Keep me' }));
+  await fireEvent.press(screen.getByRole('button', { name: 'Cancel' }));
+
+  expect(screen.queryByRole('button', { name: 'Delete task' })).toBeNull();
+  expect(await listTasks(mockDb)).toHaveLength(1);
 });
 
 it('opens the task editor when the title is pressed', async () => {

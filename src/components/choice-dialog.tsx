@@ -1,10 +1,10 @@
 import { Modal, Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
+import { Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
-export type Choice<T> = { label: string; value: T; destructive?: boolean };
+export type Choice<T> = { label: string; value: T; destructive?: boolean; disabled?: boolean };
 
 type ChoiceDialogProps<T> = {
   visible: boolean;
@@ -32,28 +32,16 @@ export function ChoiceDialog<T>({ visible, title, choices, onChoose, onCancel }:
             {title}
           </ThemedText>
           <View style={[styles.choices, { borderTopColor: theme.border }]}>
-            {[...choices, { label: 'Cancel', value: undefined }].map((choice) => (
-              <Pressable
+            {choices.map((choice) => (
+              <ChoiceButton
                 key={choice.label}
-                accessibilityRole="button"
-                onPress={() => (choice.value === undefined ? onCancel() : onChoose(choice.value as T))}
-                style={({ pressed }) => [
-                  styles.choice,
-                  { borderBottomColor: theme.border },
-                  pressed && { backgroundColor: theme.backgroundSelected },
-                ]}>
-                <ThemedText
-                  themeColor={
-                    'destructive' in choice && choice.destructive
-                      ? 'danger'
-                      : choice.value === undefined
-                        ? 'textSecondary'
-                        : 'accent'
-                  }>
-                  {choice.label}
-                </ThemedText>
-              </Pressable>
+                label={choice.label}
+                color={choice.destructive ? 'danger' : 'accent'}
+                disabled={choice.disabled}
+                onPress={() => onChoose(choice.value)}
+              />
             ))}
+            <ChoiceButton label="Cancel" color="textSecondary" onPress={onCancel} />
           </View>
         </Pressable>
       </Pressable>
@@ -72,7 +60,7 @@ const styles = StyleSheet.create({
   dialog: {
     width: '100%',
     maxWidth: 360,
-    borderRadius: Spacing.three,
+    borderRadius: Radius.large,
     overflow: 'hidden',
   },
   title: {
@@ -87,4 +75,60 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.three,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
+  disabled: {
+    opacity: 0.4,
+  },
 });
+
+function ChoiceButton({
+  label,
+  color,
+  disabled,
+  onPress,
+}: {
+  label: string;
+  color: 'accent' | 'danger' | 'textSecondary';
+  disabled?: boolean;
+  onPress: () => void;
+}) {
+  const theme = useTheme();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ disabled }}
+      disabled={disabled}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.choice,
+        { borderBottomColor: theme.border },
+        pressed && { backgroundColor: theme.backgroundSelected },
+        disabled && styles.disabled,
+      ]}>
+      <ThemedText type="defaultBold" themeColor={color}>
+        {label}
+      </ThemedText>
+    </Pressable>
+  );
+}
+
+type ConfirmDialogProps = {
+  visible: boolean;
+  title: string;
+  /** Label of the destructive button, e.g. "Delete task". */
+  confirmLabel: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+};
+
+/** "Are you sure?" with one destructive button and Cancel. */
+export function ConfirmDialog({ visible, title, confirmLabel, onConfirm, onCancel }: ConfirmDialogProps) {
+  return (
+    <ChoiceDialog
+      visible={visible}
+      title={title}
+      choices={[{ label: confirmLabel, value: true, destructive: true }]}
+      onChoose={onConfirm}
+      onCancel={onCancel}
+    />
+  );
+}

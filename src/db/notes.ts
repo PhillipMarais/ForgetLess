@@ -1,6 +1,6 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
-import { attachmentCountColumn, deleteAttachmentsFor } from './attachments';
+import { attachmentColumns, deleteAttachmentsFor } from './attachments';
 import { notifyChange } from './changes';
 import { newId, now } from './ids';
 
@@ -10,6 +10,8 @@ export type Note = {
   body: string;
   pinned: boolean;
   attachmentCount: number;
+  /** The first picture, shown on list rows; null when there are none. */
+  coverUri: string | null;
   createdAt: number;
   updatedAt: number;
 };
@@ -20,11 +22,12 @@ type NoteRow = {
   body: string;
   pinned: number;
   attachment_count: number;
+  cover_uri: string | null;
   created_at: number;
   updated_at: number;
 };
 
-const SELECT_NOTES = `SELECT notes.*, ${attachmentCountColumn('note', 'notes')} FROM notes`;
+const SELECT_NOTES = `SELECT notes.*, ${attachmentColumns('note', 'notes')} FROM notes`;
 
 function toNote(row: NoteRow): Note {
   return {
@@ -33,6 +36,7 @@ function toNote(row: NoteRow): Note {
     body: row.body,
     pinned: row.pinned === 1,
     attachmentCount: row.attachment_count,
+    coverUri: row.cover_uri,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -54,12 +58,20 @@ export async function getNote(db: SQLiteDatabase, id: string): Promise<Note | nu
   return row ? toNote(row) : null;
 }
 
-export async function createNote(db: SQLiteDatabase): Promise<string> {
+export type NoteInput = { title: string; body: string; pinned?: boolean };
+
+export async function createNote(
+  db: SQLiteDatabase,
+  input: NoteInput = { title: '', body: '' },
+): Promise<string> {
   const id = newId();
   const timestamp = now();
   await db.runAsync(
-    'INSERT INTO notes (id, created_at, updated_at) VALUES (?, ?, ?)',
+    'INSERT INTO notes (id, title, body, pinned, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
     id,
+    input.title,
+    input.body,
+    input.pinned ? 1 : 0,
     timestamp,
     timestamp,
   );
@@ -67,15 +79,13 @@ export async function createNote(db: SQLiteDatabase): Promise<string> {
   return id;
 }
 
-export async function updateNote(
-  db: SQLiteDatabase,
-  id: string,
-  changes: { title: string; body: string },
-) {
+/** Saves the note's text, and its pin when `pinned` is given. */
+export async function updateNote(db: SQLiteDatabase, id: string, changes: NoteInput) {
   await db.runAsync(
-    'UPDATE notes SET title = ?, body = ?, updated_at = ? WHERE id = ?',
+    'UPDATE notes SET title = ?, body = ?, pinned = COALESCE(?, pinned), updated_at = ? WHERE id = ?',
     changes.title,
     changes.body,
+    changes.pinned === undefined ? null : changes.pinned ? 1 : 0,
     now(),
     id,
   );
@@ -104,4 +114,25 @@ export async function deleteNote(db: SQLiteDatabase, id: string) {
     await deleteAttachmentsFor(db, 'note', id, timestamp);
   });
   notifyChange('notes');
+}
+
+/** Pins or unpins several notes at once (multi-select). */
+export async function setNotesPinned(db: SQLiteDatabase, ids: readonly string[], pinned: boolean) {
+  const timestamp = now();
+  await db.withTransactionAsync(async () => {
+    for (const id of ids) {
+      await db.runAsync(
+        'UPDATE notes SET pinned = ?, updated_at = ? WHERE id = ?',
+        pinned ? 1 : 0,
+        timestamp,
+        id,
+      );
+    }
+  });
+  notifyChange('notes');
+}
+
+/** Deletes several notes and their pictures at once (multi-select). */
+export async function deleteNotes(db: SQLiteDatabase, ids: readonly string[]) {
+  for (const id of ids) await deleteNote(db, id);
 }

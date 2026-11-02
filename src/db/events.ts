@@ -2,7 +2,7 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 
 import { occurrencesBetween, shiftWallClock } from '@/lib/recurrence';
 
-import { attachmentCountColumn, deleteAttachmentsFor } from './attachments';
+import { attachmentColumns, deleteAttachmentsFor } from './attachments';
 import { notifyChange } from './changes';
 import { currentTimeZone, newId, now } from './ids';
 
@@ -25,6 +25,8 @@ export type CalendarEvent = {
   timeZone: string;
   rrule: string | null;
   attachmentCount: number;
+  /** The first picture, shown on list rows; null when there are none. */
+  coverUri: string | null;
   createdAt: number;
   updatedAt: number;
 };
@@ -40,6 +42,8 @@ export type EventOccurrence = {
   rrule: string | null;
   /** Pictures belong to the whole event, so every occurrence shows the same count. */
   attachmentCount: number;
+  /** The first picture, shown on list rows; null when there are none. */
+  coverUri: string | null;
 };
 
 export type EventInput = {
@@ -63,6 +67,7 @@ type EventRow = {
   time_zone: string;
   rrule: string | null;
   attachment_count: number;
+  cover_uri: string | null;
   created_at: number;
   updated_at: number;
 };
@@ -77,7 +82,7 @@ type ExceptionRow = {
   end_at: number | null;
 };
 
-const SELECT_EVENTS = `SELECT events.*, ${attachmentCountColumn('event', 'events')} FROM events`;
+const SELECT_EVENTS = `SELECT events.*, ${attachmentColumns('event', 'events')} FROM events`;
 
 function toEvent(row: EventRow): CalendarEvent {
   return {
@@ -90,6 +95,7 @@ function toEvent(row: EventRow): CalendarEvent {
     timeZone: row.time_zone,
     rrule: row.rrule,
     attachmentCount: row.attachment_count,
+    coverUri: row.cover_uri,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -116,6 +122,7 @@ function toOccurrence(
     allDay: event.allDay,
     rrule: event.rrule,
     attachmentCount: event.attachmentCount,
+    coverUri: event.coverUri,
   };
 }
 

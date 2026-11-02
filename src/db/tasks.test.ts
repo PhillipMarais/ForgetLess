@@ -9,6 +9,7 @@ import {
   listTasks,
   listTasksDueBetween,
   setTaskCompleted,
+  skipMissedRepeats,
   updateTask,
 } from './tasks';
 import { createMigratedTestDatabase } from './testing/test-database';
@@ -97,6 +98,41 @@ describe('repeating tasks', () => {
   it('drops the repeat rule from tasks without a due date', async () => {
     const id = await createTask(db, { title: 'Undated', rrule: 'FREQ=DAILY' });
     expect((await getTask(db, id))?.rrule).toBeNull();
+  });
+});
+
+describe('skipMissedRepeats', () => {
+  // Local midnights; the weekly case crosses the 25 Oct DST change on purpose.
+  const TODAY = new Date(2026, 10, 2).getTime();
+
+  it('moves missed repeating tasks to their first date on or after today', async () => {
+    const weekly = await createTask(db, {
+      title: 'Weekly',
+      dueAt: new Date(2026, 9, 23).getTime(), // a Friday
+      rrule: 'FREQ=WEEKLY',
+    });
+    const daily = await createTask(db, {
+      title: 'Daily',
+      dueAt: new Date(2026, 9, 30).getTime(),
+      rrule: 'FREQ=DAILY',
+    });
+
+    expect(await skipMissedRepeats(db, TODAY)).toBe(2);
+    expect((await getTask(db, weekly))?.dueAt).toBe(new Date(2026, 10, 6).getTime());
+    expect((await getTask(db, daily))?.dueAt).toBe(TODAY);
+  });
+
+  it('leaves one-off, completed, current and ended tasks alone', async () => {
+    const oneOff = await createTask(db, { title: 'Once', dueAt: TODAY - DAY });
+    const current = await createTask(db, { title: 'Today', dueAt: TODAY, rrule: 'FREQ=DAILY' });
+    const ended = await createTask(db, { title: 'Ended', dueAt: TODAY - DAY, rrule: 'FREQ=DAILY;COUNT=1' });
+    const done = await createTask(db, { title: 'Done', dueAt: TODAY - DAY, rrule: 'FREQ=DAILY;COUNT=1' });
+    await setTaskCompleted(db, done, true);
+
+    expect(await skipMissedRepeats(db, TODAY)).toBe(0);
+    expect((await getTask(db, oneOff))?.dueAt).toBe(TODAY - DAY);
+    expect((await getTask(db, current))?.dueAt).toBe(TODAY);
+    expect((await getTask(db, ended))?.dueAt).toBe(TODAY - DAY);
   });
 });
 

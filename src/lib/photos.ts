@@ -5,6 +5,7 @@ import {
   clearDeletedAttachmentUris,
   deleteAttachment,
   listDeletedAttachmentUris,
+  setAttachmentOrder,
   type Attachment,
   type OwnerType,
 } from '@/db/attachments';
@@ -47,7 +48,7 @@ export async function addPhoto(
   ownerType: OwnerType,
   ownerId: string,
   photo: PreparedPhoto,
-) {
+): Promise<string> {
   const id = newId();
   const uri = await storePhoto(photo, id);
   await addAttachment(db, {
@@ -60,6 +61,7 @@ export async function addPhoto(
     height: photo.height,
     byteSize: photo.byteSize,
   });
+  return id;
 }
 
 export async function removePhoto(db: SQLiteDatabase, attachment: Attachment) {
@@ -67,7 +69,10 @@ export async function removePhoto(db: SQLiteDatabase, attachment: Attachment) {
   deletePhotoFile(attachment.uri);
 }
 
-/** Saves an editor's picture changes: removes dropped pictures and stores new ones. */
+/**
+ * Saves an editor's picture changes: removes dropped pictures, stores new ones, and saves
+ * the order shown in the editor (the first picture is the cover).
+ */
 export async function savePhotoChanges(
   db: SQLiteDatabase,
   ownerType: OwnerType,
@@ -79,9 +84,12 @@ export async function savePhotoChanges(
   for (const attachment of initial) {
     if (!kept.has(attachment.id)) await removePhoto(db, attachment);
   }
+  const ordered: string[] = [];
   for (const photo of photos) {
-    if (photo.prepared) await addPhoto(db, ownerType, ownerId, photo.prepared);
+    if (photo.prepared) ordered.push(await addPhoto(db, ownerType, ownerId, photo.prepared));
+    else if (photo.attachment) ordered.push(photo.attachment.id);
   }
+  await setAttachmentOrder(db, ordered);
 }
 
 /**

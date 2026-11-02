@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "main": "expo-router/entry",
   "dependencies": {
+    "@expo-google-fonts/chakra-petch": "^0.4.1",
+    "@expo-google-fonts/ibm-plex-mono": "^0.4.1",
+    "@expo-google-fonts/ibm-plex-sans": "^0.4.1",
     "@expo/ui": "~58.0.26",
     "@react-native-community/datetimepicker": "9.2.1",
     "expo": "~58.0.22",
@@ -16,6 +19,7 @@
     "expo-image": "~58.0.18",
     "expo-image-manipulator": "~58.0.16",
     "expo-image-picker": "~58.0.10",
+    "expo-linear-gradient": "~58.0.3",
     "expo-linking": "~58.0.15",
     "expo-router": "~58.0.29",
     "expo-splash-screen": "~58.0.12",

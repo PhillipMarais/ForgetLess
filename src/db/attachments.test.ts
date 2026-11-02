@@ -6,6 +6,7 @@ import {
   deleteAttachment,
   listAttachments,
   listDeletedAttachmentUris,
+  setAttachmentOrder,
   type NewAttachment,
 } from './attachments';
 import { createEvent, deleteEvent, getEvent, listOccurrences } from './events';
@@ -56,6 +57,34 @@ it('stores every field', async () => {
   expect(await listAttachments(db, 'task', taskId)).toEqual([
     expect.objectContaining({ id, ...picture('task', taskId, 'tap'), createdAt: expect.any(Number) }),
   ]);
+});
+
+it('keeps a saved order, and the first picture becomes the cover', async () => {
+  const taskId = await createTask(db, { title: 'Fix tap' });
+  const a = await addAttachment(db, picture('task', taskId, 'a'));
+  const b = await addAttachment(db, picture('task', taskId, 'b'));
+  const c = await addAttachment(db, picture('task', taskId, 'c'));
+  expect((await getTask(db, taskId))?.coverUri).toBe('file:///attachments/a.jpg');
+
+  await setAttachmentOrder(db, [c, a, b]);
+
+  expect((await listAttachments(db, 'task', taskId)).map((x) => x.id)).toEqual([c, a, b]);
+  expect((await getTask(db, taskId))?.coverUri).toBe('file:///attachments/c.jpg');
+});
+
+it('adds new pictures after the existing ones', async () => {
+  const taskId = await createTask(db, { title: 'Fix tap' });
+  const a = await addAttachment(db, picture('task', taskId, 'a'));
+  const b = await addAttachment(db, picture('task', taskId, 'b'));
+  await setAttachmentOrder(db, [b, a]);
+  const c = await addAttachment(db, picture('task', taskId, 'c'));
+
+  expect((await listAttachments(db, 'task', taskId)).map((x) => x.id)).toEqual([b, a, c]);
+});
+
+it('has no cover when there are no pictures', async () => {
+  const taskId = await createTask(db, { title: 'Plain' });
+  expect(await getTask(db, taskId)).toMatchObject({ attachmentCount: 0, coverUri: null });
 });
 
 it('soft-deletes a picture', async () => {

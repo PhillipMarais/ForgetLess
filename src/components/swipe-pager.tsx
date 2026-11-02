@@ -1,0 +1,54 @@
+import type { PropsWithChildren } from 'react';
+import { StyleSheet } from 'react-native';
+import { GestureDetector, usePanGesture } from 'react-native-gesture-handler';
+import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
+
+/** How far (px) a swipe must travel to change page. */
+const THRESHOLD = 60;
+
+type SwipePagerProps = PropsWithChildren<{
+  /** Called with -1 for a swipe to the right (previous) and +1 for left (next). */
+  onSwipe: (direction: -1 | 1) => void;
+}>;
+
+/**
+ * Lets the user swipe sideways to go to the previous or next period. The content follows
+ * the finger a little for feedback. Only clearly horizontal drags count, so vertical
+ * scrolling inside keeps working.
+ */
+export function SwipePager({ onSwipe, children }: SwipePagerProps) {
+  const offset = useSharedValue(0);
+
+  const pan = usePanGesture({
+    activeOffsetX: [-20, 20],
+    failOffsetY: [-15, 15],
+    onUpdate: (event) => {
+      'worklet';
+      offset.set(event.translationX * 0.35);
+    },
+    onDeactivate: (event) => {
+      'worklet';
+      if (event.translationX <= -THRESHOLD) scheduleOnRN(onSwipe, 1);
+      else if (event.translationX >= THRESHOLD) scheduleOnRN(onSwipe, -1);
+    },
+    onFinalize: () => {
+      'worklet';
+      offset.set(withSpring(0, { damping: 20, stiffness: 220 }));
+    },
+  });
+
+  const style = useAnimatedStyle(() => ({ transform: [{ translateX: offset.get() }] }));
+
+  return (
+    <GestureDetector gesture={pan}>
+      <Animated.View style={[styles.fill, style]}>{children}</Animated.View>
+    </GestureDetector>
+  );
+}
+
+const styles = StyleSheet.create({
+  fill: {
+    flex: 1,
+  },
+});
