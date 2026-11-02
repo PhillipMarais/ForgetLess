@@ -5,16 +5,17 @@ import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { monthGridDays, startOfDay, weekdayLabels } from '@/lib/dates';
 
+import { DayDots, describeMarks, type DayMarks } from './day-dots';
+
 type MonthGridProps = {
   /** Any time within the month to show. */
   month: number;
   selectedDay: number;
   onSelectDay: (day: number) => void;
-  /** Day starts that have something on them; they get a dot. */
-  busyDays: ReadonlySet<number>;
+  marks: DayMarks;
 };
 
-export function MonthGrid({ month, selectedDay, onSelectDay, busyDays }: MonthGridProps) {
+export function MonthGrid({ month, selectedDay, onSelectDay, marks }: MonthGridProps) {
   const theme = useTheme();
   const days = monthGridDays(month);
   const currentMonth = new Date(month).getMonth();
@@ -45,14 +46,14 @@ export function MonthGrid({ month, selectedDay, onSelectDay, busyDays }: MonthGr
                   weekday: 'long',
                   day: 'numeric',
                   month: 'long',
-                })}${busyDays.has(day) ? ', has items' : ''}`}
+                })}${isToday ? ', today' : ''}${describeMarks(marks, day)}`}
                 onPress={() => onSelectDay(day)}
                 style={styles.day}>
                 <View
                   style={[
                     styles.dayCircle,
                     selected && { backgroundColor: theme.accent },
-                    !selected && isToday && { borderColor: theme.accent, borderWidth: 1 },
+                    !selected && isToday && { borderColor: theme.accent, borderWidth: 2, backgroundColor: theme.backgroundSelected },
                   ]}>
                   <ThemedText
                     type={isToday || selected ? 'smallBold' : 'small'}
@@ -61,12 +62,7 @@ export function MonthGrid({ month, selectedDay, onSelectDay, busyDays }: MonthGr
                     {date.getDate()}
                   </ThemedText>
                 </View>
-                <View
-                  style={[
-                    styles.dot,
-                    busyDays.has(day) && { backgroundColor: inMonth ? theme.accent : theme.textSecondary },
-                  ]}
-                />
+                <DayDots marks={marks} day={day} faded={!inMonth} />
               </Pressable>
             );
           })}
@@ -103,10 +99,5 @@ const styles = StyleSheet.create({
   outside: {
     opacity: 0.6,
   },
-  dot: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
-    marginTop: 1,
-  },
+
 });

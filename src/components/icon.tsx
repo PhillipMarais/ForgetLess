@@ -61,5 +61,11 @@ export const Icons = {
   attach: { ios: 'paperclip', material: 'attach_file' },
   category: { ios: 'square.grid.2x2', material: 'category' },
   warning: { ios: 'exclamationmark.triangle', material: 'warning' },
-  swipe: { ios: 'hand.draw', material: 'swipe_left' },
+  swipe: { ios: 'hand.draw', material: 'swipe_right' },
+  expand: { ios: 'chevron.down', material: 'expand_more' },
+  collapse: { ios: 'chevron.up', material: 'expand_less' },
+  steps: { ios: 'list.bullet', material: 'format_list_bulleted' },
+  mic: { ios: 'mic', material: 'mic' },
+  alarmOff: { ios: 'alarm', material: 'alarm_off' },
+  timeline: { ios: 'clock', material: 'view_timeline' },
 } as const satisfies Record<string, IconName>;

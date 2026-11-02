@@ -12,7 +12,8 @@ import { TaskRow } from '@/components/task-row';
 import { Spacing } from '@/constants/theme';
 import { createTask, listTasks } from '@/db/tasks';
 import { useLiveQuery } from '@/db/use-live-query';
-import { useTheme } from '@/hooks/use-theme';
+import { useSettings } from '@/hooks/use-settings';
+import { useFontSize, useTheme } from '@/hooks/use-theme';
 import { addDays, startOfDay } from '@/lib/dates';
 
 const DUE_OPTIONS = [
@@ -25,7 +26,7 @@ const DUE_OPTIONS = [
 type DueDays = (typeof DUE_OPTIONS)[number]['value'];
 
 export default function TasksScreen() {
-  const { data: tasks } = useLiveQuery(['tasks', 'attachments'], 'all', listTasks);
+  const { data: tasks } = useLiveQuery(['tasks', 'attachments', 'task_steps'], 'all', listTasks);
 
   return (
     <Screen title="Tasks">
@@ -52,8 +53,11 @@ export default function TasksScreen() {
 function AddTask() {
   const db = useSQLiteContext();
   const theme = useTheme();
+  const { settings } = useSettings();
+  const fontSize = useFontSize(16);
   const [title, setTitle] = useState('');
-  const [dueDays, setDueDays] = useState<DueDays>(null);
+  // "New tasks have a date" (Settings → General) starts quick-added tasks on today.
+  const [dueDays, setDueDays] = useState<DueDays>(settings.taskDefaultDate ? 0 : null);
   const canAdd = title.trim().length > 0;
 
   // With no text, + opens the full Add task screen (repeats, time, alarm, pictures).
@@ -86,7 +90,7 @@ function AddTask() {
           returnKeyType="done"
           submitBehavior="submit"
           accessibilityLabel="New task title"
-          style={[styles.input, { color: theme.text }]}
+          style={[styles.input, { color: theme.text, fontSize }]}
         />
         <IconButton
           icon={Icons.add}
@@ -117,7 +121,6 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    fontSize: 16,
     paddingVertical: Spacing.two,
   },
 });

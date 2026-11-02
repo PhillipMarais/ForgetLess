@@ -31,7 +31,7 @@ type ThemeSampleProps = {
   page?: SamplePage;
 };
 
-/** A miniature Forgetless screen drawn in `theme`, to show what a theme looks like. */
+/** A miniature ForgetLess screen drawn in `theme`, to show what a theme looks like. */
 export function ThemeSample({ theme, compact, page = 'today' }: ThemeSampleProps) {
   return (
     <ThemeScope theme={theme}>

@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Forgetless",
+    "name": "ForgetLess",
     "slug": "forgetless",
     "version": "1.0.0",
     "orientation": "default",
@@ -49,9 +49,84 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Forgetless uses your photos when you attach a picture to a task, event or note.",
-          "cameraPermission": "Forgetless uses the camera when you take a picture for a task, event or note.",
+          "photosPermission": "ForgetLess uses your photos when you attach a picture to a task, event or note.",
+          "cameraPermission": "ForgetLess uses the camera when you take a picture for a task, event or note.",
           "microphonePermission": false
+        }
+      ],
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "ForgetLess uses the microphone when you speak a note.",
+          "speechRecognitionPermission": "ForgetLess turns what you say into note text.",
+          "androidSpeechServicePackages": [
+            "com.google.android.googlequicksearchbox",
+            "com.google.android.tts"
+          ]
+        }
+      ],
+      [
+        "react-native-android-widget",
+        {
+          "fonts": [
+            "./node_modules/@expo-google-fonts/chakra-petch/700Bold/ChakraPetch_700Bold.ttf",
+            "./node_modules/@expo-google-fonts/ibm-plex-sans/400Regular/IBMPlexSans_400Regular.ttf",
+            "./node_modules/@expo-google-fonts/ibm-plex-sans/600SemiBold/IBMPlexSans_600SemiBold.ttf"
+          ],
+          "widgets": [
+            {
+              "name": "Today",
+              "label": "ForgetLess Â· Today",
+              "description": "Today's events and tasks; tick tasks off right here.",
+              "minWidth": "250dp",
+              "minHeight": "180dp",
+              "targetCellWidth": 4,
+              "targetCellHeight": 2,
+              "resizeMode": "horizontal|vertical",
+              "updatePeriodMillis": 1800000
+            },
+            {
+              "name": "Calendar",
+              "label": "ForgetLess Â· Calendar",
+              "description": "This month, with today and busy days marked.",
+              "minWidth": "250dp",
+              "minHeight": "250dp",
+              "targetCellWidth": 4,
+              "targetCellHeight": 3,
+              "resizeMode": "horizontal|vertical",
+              "updatePeriodMillis": 1800000
+            },
+            {
+              "name": "Tasks",
+              "label": "ForgetLess Â· Tasks",
+              "description": "Your open tasks; tick them off right here.",
+              "minWidth": "250dp",
+              "minHeight": "180dp",
+              "targetCellWidth": 4,
+              "targetCellHeight": 2,
+              "resizeMode": "horizontal|vertical"
+            },
+            {
+              "name": "Notes",
+              "label": "ForgetLess Â· Notes",
+              "description": "Your latest notes, with buttons for a new or spoken note.",
+              "minWidth": "250dp",
+              "minHeight": "180dp",
+              "targetCellWidth": 4,
+              "targetCellHeight": 2,
+              "resizeMode": "horizontal|vertical"
+            },
+            {
+              "name": "VoiceNote",
+              "label": "ForgetLess Â· Voice note",
+              "description": "One tap to speak a note.",
+              "minWidth": "110dp",
+              "minHeight": "50dp",
+              "targetCellWidth": 2,
+              "targetCellHeight": 1,
+              "resizeMode": "horizontal|vertical"
+            }
+          ]
         }
       ]
     ],

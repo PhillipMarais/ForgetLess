@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState, type PropsWithChildren 
 import { useColorScheme } from 'react-native';
 
 import { FONT_SETS, isFontSetLoaded, loadFontSet } from '@/constants/fonts';
-import { Themes, withFonts, type Theme } from '@/constants/theme';
+import { CONTROL_SIZES, TEXT_SIZES, Themes, withFonts, withSizes, type Theme } from '@/constants/theme';
 import { useSettings } from '@/hooks/use-settings';
 import { buildCustomTheme } from '@/lib/custom-theme';
 
@@ -30,13 +30,27 @@ export function AppThemeProvider({ children }: PropsWithChildren<object>) {
     settings.theme === 'custom'
       ? buildCustomTheme(settings.customColors)
       : Themes[settings.theme === 'system' ? (scheme === 'dark' ? 'dark' : 'light') : settings.theme];
-  const theme = loadedSet === fontSet ? withFonts(colors, FONT_SETS[fontSet].families) : colors;
+  const theme = withSizes(
+    loadedSet === fontSet ? withFonts(colors, FONT_SETS[fontSet].families) : colors,
+    TEXT_SIZES[settings.textSize].scale,
+    CONTROL_SIZES[settings.controlSize].scale,
+  );
   return <ThemeContext.Provider value={theme}>{children}</ThemeContext.Provider>;
 }
 
 /** The active theme: colours, fonts and whether it is dark. */
 export function useAppTheme() {
   return useContext(ThemeContext);
+}
+
+/** A text size scaled by the Text size setting, for text that isn't a ThemedText (inputs). */
+export function useFontSize(size: number) {
+  return Math.round(size * useContext(ThemeContext).textScale);
+}
+
+/** A button or control dimension scaled by the Button size setting. */
+export function useControlSize(size: number) {
+  return Math.round(size * useContext(ThemeContext).controlScale);
 }
 
 /** Shortcut for the active theme's colours. */

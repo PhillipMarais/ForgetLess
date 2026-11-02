@@ -2,7 +2,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { useControlSize, useTheme } from '@/hooks/use-theme';
 
 type ChipGroupProps<T> = {
   /** Read by screen readers as the group's name. */
@@ -15,6 +15,7 @@ type ChipGroupProps<T> = {
 /** A row of single-choice chips. */
 export function ChipGroup<T>({ label, options, value, onChange }: ChipGroupProps<T>) {
   const theme = useTheme();
+  const padding = { paddingHorizontal: useControlSize(Spacing.three), paddingVertical: useControlSize(Spacing.one) };
 
   return (
     <View style={styles.group} accessibilityRole="radiogroup" accessibilityLabel={label}>
@@ -28,6 +29,7 @@ export function ChipGroup<T>({ label, options, value, onChange }: ChipGroupProps
             onPress={() => onChange(option.value)}
             style={[
               styles.chip,
+              padding,
               { borderColor: selected ? theme.accent : theme.border },
               selected && { backgroundColor: theme.accent },
             ]}>

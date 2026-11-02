@@ -12,6 +12,7 @@ import { EmptyState } from '@/components/empty-state';
 import { FormRow, FormSection, FormSwitch, FormTextInput } from '@/components/form';
 import { Icons } from '@/components/icon';
 import { PhotoStrip } from '@/components/photo-strip';
+import { MonthDayPicker, WeekdayPicker } from '@/components/repeat-pickers';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
@@ -30,14 +31,18 @@ import {
 import { listAttachments, type Attachment } from '@/db/attachments';
 import { getAlarmOffset, setAlarmOffset } from '@/db/reminders';
 import { useDraftPhotos } from '@/hooks/use-draft-photos';
+import { announceAlarm } from '@/lib/alarm-toast';
 import { addDays, nextHour, startOfDay } from '@/lib/dates';
+import { resolveEventSchedule, type EventSchedule } from '@/lib/event-schedule';
 import {
   buildRRule,
+  ordinal,
   REPEAT_OPTIONS,
+  repeatDetailsOf,
   repeatFrequencyOf,
   shiftWallClock,
-  type RepeatFrequency,
 } from '@/lib/recurrence';
+import { mondayIndex } from '@/lib/task-schedule';
 
 const HOUR = 60 * 60 * 1000;
 
@@ -45,13 +50,9 @@ const HOUR = 60 * 60 * 1000;
  * What the form edits. For all-day events `endAt` is the last day (inclusive);
  * the database stores the midnight after it.
  */
-type Draft = {
+type Draft = EventSchedule & {
   title: string;
   notes: string;
-  allDay: boolean;
-  startAt: number;
-  endAt: number;
-  repeat: RepeatFrequency | null;
   /** Minutes before the start; null for no alarm. All-day events have none. */
   alarm: number | null;
 };
@@ -78,11 +79,24 @@ function newDraft(day: number | undefined, start: number | undefined): Draft {
   const today = startOfDay();
   const startAt =
     start !== undefined ? start : day === undefined || day === today ? nextHour() : at9(day);
-  return { title: '', notes: '', allDay: false, startAt, endAt: startAt + HOUR, repeat: null, alarm: null };
+  return {
+    title: '',
+    notes: '',
+    allDay: false,
+    startAt,
+    endAt: startAt + HOUR,
+    repeat: null,
+    weekdays: [mondayIndex(startAt)],
+    monthDay: new Date(startAt).getDate(),
+    alarm: null,
+  };
 }
 
 function draftFrom({ event, occurrence, alarm }: Existing): Draft {
+  const details = repeatDetailsOf(event.rrule);
   return {
+    weekdays: details.weekdays?.length ? [...details.weekdays] : [mondayIndex(occurrence.startAt)],
+    monthDay: details.monthDay ?? new Date(occurrence.startAt).getDate(),
     title: occurrence.title,
     notes: occurrence.notes ?? '',
     allDay: occurrence.allDay,
@@ -93,14 +107,19 @@ function draftFrom({ event, occurrence, alarm }: Existing): Draft {
   };
 }
 
-function toInput(draft: Draft): EventInput {
+const ruleOf = (draft: Draft) =>
+  buildRRule(draft.repeat, { weekdays: draft.weekdays, monthDay: draft.monthDay });
+
+/** `snap`: move a new or re-ruled repeating event to its first matching day. */
+function toInput(draft: Draft, snap: boolean): EventInput {
+  const { rrule, startAt, endAt } = resolveEventSchedule(draft, snap);
   return {
     title: draft.title,
     notes: draft.notes.trim() || null,
     allDay: draft.allDay,
-    startAt: draft.allDay ? startOfDay(draft.startAt) : draft.startAt,
-    endAt: draft.allDay ? addDays(startOfDay(draft.endAt), 1) : draft.endAt,
-    rrule: buildRRule(draft.repeat),
+    startAt: draft.allDay ? startOfDay(startAt) : startAt,
+    endAt: draft.allDay ? addDays(startOfDay(endAt), 1) : endAt,
+    rrule,
   };
 }
 
@@ -157,8 +176,10 @@ function EventEditor({ initial, existing }: { initial: Draft; existing?: Existin
   const photos = useDraftPhotos(existing?.attachments ?? []);
 
   const repeating = existing?.event.rrule != null;
-  const valid =
-    draft.title.trim().length > 0 && draft.endAt >= draft.startAt && !saving && !photos.busy;
+  const ruleChanged = ruleOf(draft) !== ruleOf(initial);
+  // A repeating event's end is a time on its start day (or the next morning).
+  const endsBeforeStart = draft.repeat === null && draft.endAt < draft.startAt;
+  const valid = draft.title.trim().length > 0 && !endsBeforeStart && !saving && !photos.busy;
   const update = (changes: Partial<Draft>) => setDraft((current) => ({ ...current, ...changes }));
 
   // Moving the start keeps the duration, like most calendars.
@@ -176,11 +197,13 @@ function EventEditor({ initial, existing }: { initial: Draft; existing?: Existin
   const save = async (scope: Scope) => {
     setDialog(null);
     setSaving(true);
-    const input = toInput(draft);
+    const input = toInput(draft, !existing || ruleChanged);
     const eventId = existing ? await saveExisting(existing, input, scope) : await createEvent(db, input);
     // Pictures and the alarm belong to the whole event, whichever scope was chosen.
     await photos.save(db, 'event', eventId);
-    await setAlarmOffset(db, 'event', eventId, draft.allDay ? null : draft.alarm);
+    const alarmOffset = draft.allDay ? null : draft.alarm;
+    await setAlarmOffset(db, 'event', eventId, alarmOffset);
+    if (alarmOffset !== null) await announceAlarm(db, 'event', eventId);
     leaveEditor('/calendar');
   };
 
@@ -223,7 +246,7 @@ function EventEditor({ initial, existing }: { initial: Draft; existing?: Existin
 
   const onSavePress = () => {
     // Changing the repeat rule or all-day only makes sense for the whole series.
-    const seriesOnly = draft.repeat !== initial.repeat || draft.allDay !== initial.allDay;
+    const seriesOnly = ruleChanged || draft.allDay !== initial.allDay;
     if (repeating && !seriesOnly) setDialog('save');
     else save('all');
   };
@@ -254,40 +277,6 @@ function EventEditor({ initial, existing }: { initial: Draft; existing?: Existin
         variant="title"
       />
 
-      <FormSection>
-        <FormSwitch label="All day" value={draft.allDay} onChange={changeAllDay} />
-        <FormRow label="Starts">
-          <DateTimeField mode="date" label="Start date" value={draft.startAt} onChange={changeStart} />
-          {!draft.allDay ? (
-            <DateTimeField mode="time" label="Start time" value={draft.startAt} onChange={changeStart} />
-          ) : null}
-        </FormRow>
-        <FormRow label="Ends">
-          <DateTimeField
-            mode="date"
-            label="End date"
-            value={draft.endAt}
-            onChange={(endAt) => update({ endAt })}
-          />
-          {!draft.allDay ? (
-            <DateTimeField
-              mode="time"
-              label="End time"
-              value={draft.endAt}
-              onChange={(endAt) => update({ endAt })}
-            />
-          ) : null}
-        </FormRow>
-        {!draft.allDay ? (
-          <AlarmField value={draft.alarm} onChange={(alarm) => update({ alarm })} />
-        ) : null}
-        {draft.endAt < draft.startAt ? (
-          <ThemedText type="small" themeColor="danger">
-            The end is before the start.
-          </ThemedText>
-        ) : null}
-      </FormSection>
-
       <FormSection label="Repeat">
         <ChipGroup
           label="Repeat"
@@ -295,6 +284,59 @@ function EventEditor({ initial, existing }: { initial: Draft; existing?: Existin
           value={draft.repeat}
           onChange={(repeat) => update({ repeat })}
         />
+      </FormSection>
+
+      <FormSection label={whenLabel(draft)}>
+        {draft.repeat === 'weekly' ? (
+          <WeekdayPicker value={draft.weekdays} onChange={(weekdays) => update({ weekdays })} />
+        ) : null}
+        {draft.repeat === 'monthly' ? (
+          <>
+            <MonthDayPicker value={draft.monthDay} onChange={(monthDay) => update({ monthDay })} />
+            {draft.monthDay > 28 ? (
+              <ThemedText type="small" themeColor="textSecondary">
+                Months without a {ordinal(draft.monthDay)} are skipped.
+              </ThemedText>
+            ) : null}
+          </>
+        ) : null}
+        <FormSwitch label="All day" value={draft.allDay} onChange={changeAllDay} />
+        <FormRow label={startLabel(draft)}>
+          <DateTimeField mode="date" label="Start date" value={draft.startAt} onChange={changeStart} />
+          {!draft.allDay ? (
+            <DateTimeField mode="time" label="Start time" value={draft.startAt} onChange={changeStart} />
+          ) : null}
+        </FormRow>
+        {draft.repeat === null ? (
+          <FormRow label="Ends">
+            <DateTimeField
+              mode="date"
+              label="End date"
+              value={draft.endAt}
+              onChange={(endAt) => update({ endAt })}
+            />
+            {!draft.allDay ? (
+              <DateTimeField
+                mode="time"
+                label="End time"
+                value={draft.endAt}
+                onChange={(endAt) => update({ endAt })}
+              />
+            ) : null}
+          </FormRow>
+        ) : !draft.allDay ? (
+          <FormRow label="Until">
+            <DateTimeField mode="time" label="End time" value={draft.endAt} onChange={(endAt) => update({ endAt })} />
+          </FormRow>
+        ) : null}
+        {!draft.allDay ? (
+          <AlarmField value={draft.alarm} onChange={(alarm) => update({ alarm })} />
+        ) : null}
+        {endsBeforeStart ? (
+          <ThemedText type="small" themeColor="danger">
+            The end is before the start.
+          </ThemedText>
+        ) : null}
       </FormSection>
 
       <FormSection label="Pictures">
@@ -341,6 +383,20 @@ function EventEditor({ initial, existing }: { initial: Draft; existing?: Existin
       />
     </EditorLayout>
   );
+}
+
+function whenLabel({ repeat }: Draft) {
+  if (repeat === 'weekly') return 'On these days';
+  if (repeat === 'monthly') return 'On this day of the month';
+  return 'When';
+}
+
+/** Weekly and monthly events start on the first chosen day from this date. */
+function startLabel({ repeat }: Draft) {
+  if (repeat === 'weekly' || repeat === 'monthly') return 'From';
+  if (repeat === 'yearly') return 'Every year on';
+  if (repeat === 'daily') return 'Starting';
+  return 'Starts';
 }
 
 const styles = StyleSheet.create({

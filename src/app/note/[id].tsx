@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ChipGroup } from '@/components/chip';
 import { ChoiceDialog, ConfirmDialog } from '@/components/choice-dialog';
+import { DictationButton } from '@/components/dictation-button';
 import { HeaderTextButton, KEYBOARD_GAP, leaveEditor } from '@/components/editor';
 import { DocumentList } from '@/components/document-list';
 import { EmptyState } from '@/components/empty-state';
@@ -21,14 +22,23 @@ import { listCategories } from '@/db/categories';
 import { createNote, deleteNote, getNote, updateNote, type Note } from '@/db/notes';
 import { useLiveQuery } from '@/db/use-live-query';
 import { useDraftDocuments } from '@/hooks/use-draft-documents';
+import { appendSentence, useDictation } from '@/hooks/use-dictation';
 import { useDraftPhotos } from '@/hooks/use-draft-photos';
-import { useAppTheme } from '@/hooks/use-theme';
+import { useAppTheme, useFontSize } from '@/hooks/use-theme';
+import { voiceNoteTitle } from '@/lib/dates';
+import { ForgetlessDevice } from '@/lib/device';
 
 type Loaded = { note: Note | null; attachments: Attachment[]; documents: Attachment[] };
 
 export default function NoteScreen() {
   // `category` pre-selects a category for a new note (from a category's + button).
-  const { id, category } = useLocalSearchParams<{ id: string; category?: string }>();
+  // `voice` starts a spoken note (from the Voice note widget, `from=widget`).
+  const { id, category, voice, from } = useLocalSearchParams<{
+    id: string;
+    category?: string;
+    voice?: string;
+    from?: string;
+  }>();
   const db = useSQLiteContext();
   const isNew = id === 'new';
   const [loaded, setLoaded] = useState<Loaded | null | undefined>(
@@ -57,7 +67,15 @@ export default function NoteScreen() {
       </ThemedView>
     );
   }
-  return <NoteEditor key={id} {...loaded} newNoteCategory={category ?? null} />;
+  return (
+    <NoteEditor
+      key={id}
+      {...loaded}
+      newNoteCategory={category ?? null}
+      voice={isNew && voice === '1'}
+      fromWidget={from === 'widget'}
+    />
+  );
 }
 
 /**
@@ -69,12 +87,25 @@ function NoteEditor({
   attachments,
   documents,
   newNoteCategory,
-}: Loaded & { newNoteCategory: string | null }) {
+  voice,
+  fromWidget,
+}: Loaded & { newNoteCategory: string | null; voice: boolean; fromWidget: boolean }) {
   const db = useSQLiteContext();
   const theme = useAppTheme();
   const { colors } = theme;
-  const [title, setTitle] = useState(note?.title ?? '');
+  const titleSize = useFontSize(24);
+  const bodySize = useFontSize(16);
+  // A voice note is titled with the date and time until you tap the title to type your own.
+  const [defaultTitle] = useState(() => (voice ? voiceNoteTitle() : ''));
+  const [title, setTitle] = useState(note?.title ?? defaultTitle);
   const [body, setBody] = useState(note?.body ?? '');
+  const dictation = useDictation((sentence) => setBody((current) => appendSentence(current, sentence)));
+
+  // Voice notes start listening straight away (after a ping).
+  useEffect(() => {
+    if (voice) dictation.start();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [voice]);
   const [pinned, setPinned] = useState(note?.pinned ?? false);
   const initialCategory = note ? note.categoryId : newNoteCategory;
   const [categoryId, setCategoryId] = useState(initialCategory);
@@ -88,7 +119,10 @@ function NoteEditor({
   const insets = useSafeAreaInsets();
 
   const empty =
-    !title.trim() && !body.trim() && photos.photos.length === 0 && files.documents.length === 0;
+    !(title.trim() && title !== defaultTitle) &&
+    !body.trim() &&
+    photos.photos.length === 0 &&
+    files.documents.length === 0;
   const changed =
     title !== (note?.title ?? '') ||
     body !== (note?.body ?? '') ||
@@ -112,11 +146,14 @@ function NoteEditor({
     blockedLeave.current = null;
     if (resume) resume();
     else leaveEditor('/notes');
-  }, [leaving]);
+    // Opened from the Voice note widget: go back to the home screen, like the widget closing.
+    if (fromWidget) ForgetlessDevice?.moveToBack();
+  }, [leaving, fromWidget]);
 
   const save = async () => {
     setDialog(null);
     setSaving(true);
+    if (dictation.listening) dictation.stop();
     const input = { title, body, pinned, categoryId };
     const noteId = note ? note.id : await createNote(db, input);
     if (note) await updateNote(db, note.id, input);
@@ -140,7 +177,7 @@ function NoteEditor({
     <ThemedView style={styles.container}>
       <Stack.Screen
         options={{
-          title: note ? 'Note' : 'New note',
+          title: note ? 'Note' : voice ? 'Voice note' : 'New note',
           headerRight: () => (
             <View style={styles.headerActions}>
               <IconButton
@@ -173,8 +210,11 @@ function NoteEditor({
           placeholder="Title"
           placeholderTextColor={colors.textSecondary}
           accessibilityLabel="Note title"
-          autoFocus={note === null}
-          style={[styles.title, fontStyle(theme, 'display', 600), { color: colors.text }]}
+          autoFocus={note === null && !voice}
+          onFocus={() => {
+            if (defaultTitle && title === defaultTitle) setTitle('');
+          }}
+          style={[styles.title, fontStyle(theme, 'display', 600), { color: colors.text, fontSize: titleSize }]}
         />
         {categories.length > 0 ? (
           <ChipGroup
@@ -189,6 +229,14 @@ function NoteEditor({
         ) : null}
         <PhotoStrip draft={photos} />
         <DocumentList draft={files} />
+        <DictationButton
+          listening={dictation.listening}
+          partial={dictation.partial}
+          error={dictation.error}
+          onStart={dictation.start}
+          onStop={dictation.stop}
+          label="Speak to write"
+        />
         <TextInput
           value={body}
           onChangeText={setBody}
@@ -198,7 +246,11 @@ function NoteEditor({
           multiline
           scrollEnabled={false}
           textAlignVertical="top"
-          style={[styles.body, fontStyle(theme, 'body', 400), { color: colors.text }]}
+          style={[
+            styles.body,
+            fontStyle(theme, 'body', 400),
+            { color: colors.text, fontSize: bodySize, lineHeight: Math.round(bodySize * 1.5) },
+          ]}
         />
         {note ? (
           <Pressable

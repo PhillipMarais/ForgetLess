@@ -1,14 +1,26 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
 import { listOccurrences, type EventOccurrence } from '@/db/events';
-import { listAlarmSources } from '@/db/reminders';
+import { listAlarmSources, listSkippedAlarms, type ReminderOwner } from '@/db/reminders';
 import { getTask, type Task } from '@/db/tasks';
 
 import { formatTime } from './dates';
 import { occurrencesLimited } from './recurrence';
 
-/** One alarm for the phone to ring; mirrors NativeAlarm in modules/forgetless-device. */
-export type PlannedAlarm = { id: string; at: number; title: string; body: string };
+/**
+ * One alarm for the phone to ring (id, at, title and body mirror NativeAlarm in
+ * modules/forgetless-device), and the task or event it belongs to.
+ */
+export type PlannedAlarm = {
+  id: string;
+  at: number;
+  title: string;
+  body: string;
+  ownerType: ReminderOwner;
+  ownerId: string;
+  /** The item repeats, so it has other alarms too. */
+  repeating: boolean;
+};
 
 /**
  * How far ahead alarms are handed to Android. Repeating items get one alarm per date in
@@ -40,6 +52,9 @@ export function taskAlarms(task: Task, offsetMinutes: number, now: number): Plan
       at: time - offset,
       title: task.title,
       body: offsetMinutes === 0 ? `Due now · ${formatTime(time)}` : lead(offsetMinutes, time),
+      ownerType: 'task' as const,
+      ownerId: task.id,
+      repeating: task.rrule !== null,
     }));
 }
 
@@ -61,12 +76,25 @@ export function eventAlarms(
         offsetMinutes === 0
           ? `${formatTime(occurrence.startAt)} – ${formatTime(occurrence.endAt)}`
           : lead(offsetMinutes, occurrence.startAt),
+      ownerType: 'event' as const,
+      ownerId: occurrence.eventId,
+      repeating: occurrence.rrule !== null,
     }));
 }
 
-/** Every alarm due to ring in the next ALARM_HORIZON_MS, soonest first. */
-export async function planAlarms(db: SQLiteDatabase, now = Date.now()): Promise<PlannedAlarm[]> {
-  const sources = await listAlarmSources(db);
+/**
+ * Every alarm due to ring in the next ALARM_HORIZON_MS, soonest first, leaving out alarms
+ * cancelled one by one. `only` limits it to one task or event.
+ */
+export async function planAlarms(
+  db: SQLiteDatabase,
+  now = Date.now(),
+  only?: { ownerType: ReminderOwner; ownerId: string },
+): Promise<PlannedAlarm[]> {
+  const sources = (await listAlarmSources(db)).filter(
+    (source) => !only || (source.ownerType === only.ownerType && source.ownerId === only.ownerId),
+  );
+  const skipped = await listSkippedAlarms(db);
   const alarms: PlannedAlarm[] = [];
 
   const events = sources.filter((source) => source.ownerType === 'event');
@@ -84,5 +112,28 @@ export async function planAlarms(db: SQLiteDatabase, now = Date.now()): Promise<
     if (task) alarms.push(...taskAlarms(task, source.offsetMinutes, now));
   }
 
-  return alarms.sort((a, b) => a.at - b.at).slice(0, MAX_ALARMS);
+  return alarms
+    .filter((alarm) => !skipped.has(alarm.id))
+    .sort((a, b) => a.at - b.at)
+    .slice(0, MAX_ALARMS);
+}
+
+/**
+ * "2 hours and 5 minutes", "1 day and 3 hours", "less than a minute": how long until an
+ * alarm rings, as the phone's clock app says it.
+ */
+export function describeTimeUntil(at: number, now = Date.now()) {
+  const minutes = Math.max(0, Math.round((at - now) / 60_000));
+  if (minutes < 1) return 'less than a minute';
+  const days = Math.floor(minutes / (24 * 60));
+  const hours = Math.floor((minutes % (24 * 60)) / 60);
+  const mins = minutes % 60;
+  const unit = (count: number, name: string) => `${count} ${name}${count === 1 ? '' : 's'}`;
+  const parts = [
+    days > 0 ? unit(days, 'day') : null,
+    hours > 0 ? unit(hours, 'hour') : null,
+    // Past a day, minutes are noise.
+    mins > 0 && days === 0 ? unit(mins, 'minute') : null,
+  ].filter((part): part is string => part !== null);
+  return parts.length > 1 ? `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}` : parts[0];
 }

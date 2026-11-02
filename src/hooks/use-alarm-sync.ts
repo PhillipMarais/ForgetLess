@@ -1,13 +1,32 @@
-import { useSQLiteContext } from 'expo-sqlite';
+import { useSQLiteContext, type SQLiteDatabase } from 'expo-sqlite';
 import { useEffect } from 'react';
 import { AppState } from 'react-native';
 
 import { subscribeToChanges, type Table } from '@/db/changes';
+import type { Settings } from '@/db/settings';
 import { useSettings } from '@/hooks/use-settings';
 import { planAlarms } from '@/lib/alarms';
 import { ForgetlessDevice } from '@/lib/device';
 
-const WATCHED: readonly Table[] = ['tasks', 'events', 'reminders', 'occurrence_exceptions'];
+const WATCHED: readonly Table[] = ['tasks', 'events', 'reminders', 'occurrence_exceptions', 'alarm_skips'];
+
+/** Hands Android every alarm due in the coming weeks, with the alarm settings. */
+export async function scheduleAlarms(
+  db: SQLiteDatabase,
+  settings: Pick<Settings, 'alarmSoundUri' | 'alarmVibrate' | 'alarmSnoozeMinutes'>,
+) {
+  const device = ForgetlessDevice;
+  if (!device) return;
+  const alarms = await planAlarms(db);
+  device.setAlarms(
+    alarms.map(({ id, at, title, body }) => ({ id, at, title, body })),
+    {
+      soundUri: settings.alarmSoundUri,
+      vibrate: settings.alarmVibrate,
+      snoozeMinutes: settings.alarmSnoozeMinutes,
+    },
+  );
+}
 
 /**
  * Keeps Android's scheduled alarms in step with the data: re-plans them shortly after any
@@ -20,8 +39,7 @@ export function useAlarmSync() {
   const { alarmSoundUri, alarmVibrate, alarmSnoozeMinutes } = settings;
 
   useEffect(() => {
-    const device = ForgetlessDevice;
-    if (!device) return;
+    if (!ForgetlessDevice) return;
     let active = true;
     let timer: ReturnType<typeof setTimeout> | undefined;
 
@@ -29,13 +47,7 @@ export function useAlarmSync() {
       clearTimeout(timer);
       timer = setTimeout(async () => {
         try {
-          const alarms = await planAlarms(db);
-          if (!active) return;
-          device.setAlarms(alarms, {
-            soundUri: alarmSoundUri,
-            vibrate: alarmVibrate,
-            snoozeMinutes: alarmSnoozeMinutes,
-          });
+          if (active) await scheduleAlarms(db, { alarmSoundUri, alarmVibrate, alarmSnoozeMinutes });
         } catch (error) {
           console.warn('Could not schedule alarms', error);
         }

@@ -2,7 +2,7 @@ import { Pressable, StyleSheet } from 'react-native';
 
 import { Icon, type IconName } from '@/components/icon';
 import { Spacing, type ThemeColor } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { useControlSize, useTheme } from '@/hooks/use-theme';
 
 type IconButtonProps = {
   icon: IconName;
@@ -24,6 +24,8 @@ export function IconButton({
 }: IconButtonProps) {
   const theme = useTheme();
   const filled = variant === 'filled';
+  const size = useControlSize(44);
+  const iconSize = useControlSize(22);
 
   return (
     <Pressable
@@ -35,10 +37,11 @@ export function IconButton({
       hitSlop={Spacing.one}
       style={({ pressed }) => [
         styles.button,
+        { width: size, height: size, borderRadius: size / 2 },
         filled && { backgroundColor: theme.accent },
         (pressed || disabled) && styles.dimmed,
       ]}>
-      <Icon name={icon} size={22} color={filled ? 'onAccent' : color} />
+      <Icon name={icon} size={iconSize} color={filled ? 'onAccent' : color} />
     </Pressable>
   );
 }

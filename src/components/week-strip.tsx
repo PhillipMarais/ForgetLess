@@ -1,20 +1,25 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
+import { Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { startOfDay, weekDays } from '@/lib/dates';
+
+import { DayDots, describeMarks, type DayMarks } from './day-dots';
 
 type WeekStripProps = {
   /** Any time in the week to show. */
   week: number;
   selectedDay: number;
   onSelectDay: (day: number) => void;
-  busyDays: ReadonlySet<number>;
+  marks: DayMarks;
 };
 
-/** The 7 days of a week as buttons, with a dot on days that have something on them. */
-export function WeekStrip({ week, selectedDay, onSelectDay, busyDays }: WeekStripProps) {
+/**
+ * The 7 days of a week as buttons, with dots on days that have events or tasks. Today's
+ * column is shaded, so it stands out even when another day is selected.
+ */
+export function WeekStrip({ week, selectedDay, onSelectDay, marks }: WeekStripProps) {
   const theme = useTheme();
   const today = startOfDay();
 
@@ -33,11 +38,11 @@ export function WeekStrip({ week, selectedDay, onSelectDay, busyDays }: WeekStri
               weekday: 'long',
               day: 'numeric',
               month: 'long',
-            })}${busyDays.has(day) ? ', has items' : ''}`}
+            })}${isToday ? ', today' : ''}${describeMarks(marks, day)}`}
             onPress={() => onSelectDay(day)}
-            style={styles.day}>
-            <ThemedText type="label" themeColor="textSecondary" style={styles.weekday}>
-              {date.toLocaleDateString(undefined, { weekday: 'narrow' })}
+            style={[styles.day, isToday && { backgroundColor: theme.backgroundSelected }]}>
+            <ThemedText type="label" themeColor={isToday ? 'accentText' : 'textSecondary'} style={styles.weekday}>
+              {isToday ? 'Today' : date.toLocaleDateString(undefined, { weekday: 'narrow' })}
             </ThemedText>
             <View
               style={[
@@ -49,7 +54,7 @@ export function WeekStrip({ week, selectedDay, onSelectDay, busyDays }: WeekStri
                 {date.getDate()}
               </ThemedText>
             </View>
-            <View style={[styles.dot, busyDays.has(day) && { backgroundColor: theme.accent }]} />
+            <DayDots marks={marks} day={day} />
           </Pressable>
         );
       })}
@@ -67,6 +72,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.one,
     paddingVertical: Spacing.one,
+    borderRadius: Radius.medium,
   },
   weekday: {
     fontSize: 11,
@@ -77,10 +83,5 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  dot: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
   },
 });

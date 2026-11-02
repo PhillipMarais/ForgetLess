@@ -171,9 +171,9 @@ object Alarms {
 
   fun notificationId(alarm: Alarm) = alarm.id.removePrefix("snooze:").hashCode()
 
-  fun soundUri(config: AlarmConfig): Uri =
+  fun soundUri(context: Context, config: AlarmConfig): Uri =
     config.soundUri?.let { Uri.parse(it) }
-      ?: RingtoneManager.getActualDefaultRingtoneUri(null, RingtoneManager.TYPE_ALARM)
+      ?: RingtoneManager.getActualDefaultRingtoneUri(context, RingtoneManager.TYPE_ALARM)
       ?: Settings.System.DEFAULT_ALARM_ALERT_URI
 
   /**
@@ -191,7 +191,7 @@ object Alarms {
       val channel = NotificationChannel(id, "Alarms", NotificationManager.IMPORTANCE_HIGH).apply {
         description = "Alarms for your tasks and events"
         setSound(
-          soundUri(config),
+          soundUri(context, config),
           AudioAttributes.Builder()
             .setUsage(AudioAttributes.USAGE_ALARM)
             .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
@@ -233,7 +233,7 @@ object Alarms {
       .setTimeoutAfter(RING_TIMEOUT_MS)
       .setContentIntent(screen)
       .setFullScreenIntent(screen, true)
-      .setSound(soundUri(config), AudioManagerStream.ALARM)
+      .setSound(soundUri(context, config), AudioManagerStream.ALARM)
       .setVibrate(if (config.vibrate) longArrayOf(0, 800, 600, 800, 600) else null)
       .addAction(0, "Snooze ${config.snoozeMinutes} min", actionPendingIntent(context, ACTION_SNOOZE, alarm))
       .addAction(0, "Dismiss", actionPendingIntent(context, ACTION_DISMISS, alarm))

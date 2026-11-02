@@ -8,7 +8,7 @@ export type PhotoSource = 'camera' | 'library';
 /** Thrown when the user has refused camera access. */
 export class CameraPermissionError extends Error {
   constructor() {
-    super('Camera access is off for Forgetless. You can turn it on in your phone settings.');
+    super('Camera access is off for ForgetLess. You can turn it on in your phone settings.');
   }
 }
 

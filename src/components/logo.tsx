@@ -30,7 +30,7 @@ export function AppBrand() {
   // The wordmark is part of the logo, so it keeps the brand font whichever font set is chosen.
   const word = [styles.word, { fontFamily: BRAND_FONTS.display[700] }];
   return (
-    <View style={styles.brand} accessibilityRole="header" accessibilityLabel="Forgetless">
+    <View style={styles.brand} accessibilityRole="header" accessibilityLabel="ForgetLess">
       <LogoMark height={22} />
       <View style={[styles.divider, { backgroundColor: theme.colors.border }]} />
       <ThemedText style={word}>

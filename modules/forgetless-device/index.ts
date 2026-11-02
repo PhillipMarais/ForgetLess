@@ -1,7 +1,7 @@
 import { requireOptionalNativeModule } from 'expo-modules-core';
 
 /**
- * Forgetless's own Android module (android/src/main/java/app/mts/forgetless/device).
+ * ForgetLess's own Android module (android/src/main/java/app/mts/forgetless/device).
  * Null on web and in tests, where alarms can't ring and PDFs are shown by the browser.
  */
 
@@ -42,6 +42,10 @@ type ForgetlessDeviceModule = {
   stopPreview(): void;
   pdfPageCount(uri: string): Promise<number>;
   renderPdfPage(uri: string, index: number, width: number): Promise<PdfPage>;
+  /** A short beep, e.g. when a voice note starts listening. */
+  playPing(): void;
+  /** Sends the app to the background, like pressing Home. */
+  moveToBack(): void;
 };
 
 export const ForgetlessDevice = requireOptionalNativeModule<ForgetlessDeviceModule>('ForgetlessDevice');

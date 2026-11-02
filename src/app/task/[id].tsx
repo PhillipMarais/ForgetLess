@@ -12,14 +12,18 @@ import { FormRow, FormSection, FormSwitch, FormTextInput } from '@/components/fo
 import { Icon, Icons } from '@/components/icon';
 import { PhotoStrip } from '@/components/photo-strip';
 import { MonthDayPicker, WeekdayPicker } from '@/components/repeat-pickers';
+import { StepsEditor } from '@/components/steps-editor';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Radius, Spacing } from '@/constants/theme';
 import { listAttachments, type Attachment } from '@/db/attachments';
 import { getAlarmOffset, setAlarmOffset } from '@/db/reminders';
+import { saveSteps, type StepDraft } from '@/db/steps';
 import { createTask, deleteTask, getTask, updateTask, type Task } from '@/db/tasks';
 import { useDraftPhotos } from '@/hooks/use-draft-photos';
+import { useSettings } from '@/hooks/use-settings';
 import { useTheme } from '@/hooks/use-theme';
+import { announceAlarm } from '@/lib/alarm-toast';
 import { formatDueLabel } from '@/lib/dates';
 import { describeRepeat, ordinal, REPEAT_OPTIONS } from '@/lib/recurrence';
 import { resolveSchedule, sameSchedule, scheduleFrom, type TaskSchedule } from '@/lib/task-schedule';
@@ -61,16 +65,34 @@ export default function TaskScreen() {
   return <TaskEditor key={id} {...loaded} initialTitle={title ?? ''} />;
 }
 
-type Draft = TaskSchedule & { title: string; notes: string; alarm: number | null };
+type Draft = TaskSchedule & {
+  title: string;
+  notes: string;
+  alarm: number | null;
+  /** Steps on: the task is ticked off by ticking off each step. */
+  hasSteps: boolean;
+  steps: StepDraft[];
+};
 
 function TaskEditor({ task, attachments, alarm, initialTitle }: Loaded & { initialTitle: string }) {
   const db = useSQLiteContext();
-  const [initial] = useState<Draft>(() => ({
-    ...scheduleFrom(task),
-    title: task?.title ?? initialTitle,
-    notes: task?.notes ?? '',
-    alarm,
-  }));
+  const { settings } = useSettings();
+  const [initial] = useState<Draft>(() => {
+    const schedule = scheduleFrom(task);
+    // New tasks start with the date, time and alarm chosen in Settings → General.
+    const date = !task && settings.taskDefaultDate;
+    const time = date && settings.taskDefaultTime;
+    return {
+      ...schedule,
+      hasDate: schedule.hasDate || date,
+      hasTime: schedule.hasTime || time,
+      title: task?.title ?? initialTitle,
+      notes: task?.notes ?? '',
+      alarm: task ? alarm : time && settings.taskDefaultAlarm ? 0 : null,
+      hasSteps: (task?.steps.length ?? 0) > 0,
+      steps: task?.steps.map(({ id, title, doneAt }) => ({ id, title, doneAt })) ?? [],
+    };
+  });
   const [draft, setDraft] = useState(initial);
   const [saving, setSaving] = useState(false);
   const photos = useDraftPhotos(attachments);
@@ -90,8 +112,11 @@ function TaskEditor({ task, attachments, alarm, initialTitle }: Loaded & { initi
     const input = { title: draft.title, notes: draft.notes.trim() || null, ...resolved };
     const taskId = task ? task.id : await createTask(db, input);
     if (task) await updateTask(db, task.id, input);
-    await setAlarmOffset(db, 'task', taskId, dated && draft.hasTime ? draft.alarm : null);
+    const alarmOffset = dated && draft.hasTime ? draft.alarm : null;
+    await setAlarmOffset(db, 'task', taskId, alarmOffset);
+    await saveSteps(db, taskId, draft.hasSteps ? draft.steps : []);
     await photos.save(db, 'task', taskId);
+    if (alarmOffset !== null) await announceAlarm(db, 'task', taskId);
     leaveEditor('/tasks');
   };
 
@@ -172,6 +197,17 @@ function TaskEditor({ task, attachments, alarm, initialTitle }: Loaded & { initi
       </FormSection>
 
       {resolved.dueAt !== null ? <ScheduleSummary resolved={resolved} /> : null}
+
+      <FormSection label="Steps">
+        <FormSwitch label="Steps" value={draft.hasSteps} onChange={(hasSteps) => update({ hasSteps })} />
+        {draft.hasSteps ? (
+          <StepsEditor steps={draft.steps} onChange={(steps) => update({ steps })} />
+        ) : (
+          <ThemedText type="small" themeColor="textSecondary">
+            Break the task into steps; it is done once every step is ticked off.
+          </ThemedText>
+        )}
+      </FormSection>
 
       <FormSection label="Pictures">
         <PhotoStrip draft={photos} />

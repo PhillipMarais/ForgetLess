@@ -60,6 +60,8 @@ export default function CustomThemeScreen() {
   const [asking, setAsking] = useState(false);
   const blockedLeave = useRef<(() => void) | null>(null);
   const scroll = useRef<ScrollViewInstance>(null);
+  // Scroll the picker and its Done button into view once, when it opens.
+  const scrolledToPicker = useRef(false);
 
   const preview = editing ? { ...draft, [editing]: picked } : draft;
   const changed = CUSTOM_COLOR_FIELDS.some(({ key }) => draft[key] !== settings.customColors[key]);
@@ -100,7 +102,7 @@ export default function CustomThemeScreen() {
     setPickerStart(draft[field]);
     setPicked(draft[field]);
     setEditing(field);
-    scroll.current?.scrollTo({ y: 0, animated: true });
+    scrolledToPicker.current = false;
   };
 
   const closePicker = (keep: boolean) => {
@@ -123,7 +125,13 @@ export default function CustomThemeScreen() {
           <ThemeSamplePager theme={buildCustomTheme(preview)} />
 
           {editing && editingField ? (
-            <View style={[styles.editor, { backgroundColor: colors.backgroundElement }]}>
+            <View
+              style={[styles.editor, { backgroundColor: colors.backgroundElement }]}
+              onLayout={() => {
+                if (scrolledToPicker.current) return;
+                scrolledToPicker.current = true;
+                scroll.current?.scrollToEnd({ animated: true });
+              }}>
               <View style={styles.editorHeader}>
                 <View style={[styles.swatch, { backgroundColor: picked, borderColor: colors.border }]} />
                 <View style={styles.flex}>

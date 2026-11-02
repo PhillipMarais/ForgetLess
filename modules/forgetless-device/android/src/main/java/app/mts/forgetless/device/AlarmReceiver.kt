@@ -10,7 +10,7 @@ class AlarmReceiver : BroadcastReceiver() {
     val alarm = Alarm(
       intent.getStringExtra(Alarms.EXTRA_ID) ?: return,
       System.currentTimeMillis(),
-      intent.getStringExtra(Alarms.EXTRA_TITLE) ?: "Forgetless",
+      intent.getStringExtra(Alarms.EXTRA_TITLE) ?: "ForgetLess",
       intent.getStringExtra(Alarms.EXTRA_BODY) ?: "",
     )
     when (intent.action) {

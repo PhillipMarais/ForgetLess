@@ -5,6 +5,7 @@ import { nextOccurrenceAfter, occurrencesLimited } from '@/lib/recurrence';
 import { attachmentColumns, deleteAttachmentsFor } from './attachments';
 import { notifyChange } from './changes';
 import { currentTimeZone, newId, now } from './ids';
+import { deleteStepsFor, listSteps, resetSteps, setStepDoneAt, stepsByTask, type TaskStep } from './steps';
 
 export type Task = {
   id: string;
@@ -28,6 +29,8 @@ export type Task = {
    * `dueAt` is then that date and `completedAt` when it was ticked off.
    */
   occurrence: 'done' | 'upcoming' | null;
+  /** Its steps, in order; empty for a task without steps. */
+  steps: TaskStep[];
 };
 
 type TaskRow = {
@@ -66,7 +69,14 @@ function toTask(row: TaskRow): Task {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     occurrence: null,
+    steps: [],
   };
+}
+
+/** Fills in each task's steps. */
+async function withSteps(db: SQLiteDatabase, tasks: Task[]): Promise<Task[]> {
+  const steps = await stepsByTask(db, tasks.map((task) => task.id));
+  return tasks.map((task) => ({ ...task, steps: steps.get(task.id) ?? [] }));
 }
 
 /** A unique key for a list entry: one task can have several dated entries. */
@@ -109,7 +119,7 @@ export async function listTasks(db: SQLiteDatabase): Promise<Task[]> {
               sort_order ASC,
               created_at ASC`,
   );
-  return rows.map(toTask);
+  return withSteps(db, rows.map(toTask));
 }
 
 /** Open tasks due before `before` (epoch ms), oldest first. */
@@ -120,7 +130,7 @@ export async function listOpenTasksDueBefore(db: SQLiteDatabase, before: number)
      ORDER BY due_at ASC, sort_order ASC, created_at ASC`,
     before,
   );
-  return rows.map(toTask);
+  return withSteps(db, rows.map(toTask));
 }
 
 /** Tasks (open or completed) due within [from, to), soonest first. */
@@ -136,7 +146,7 @@ export async function listTasksDueBetween(
     from,
     to,
   );
-  return rows.map(toTask);
+  return withSteps(db, rows.map(toTask));
 }
 
 /**
@@ -161,7 +171,7 @@ export async function listTodayTasks(
     today,
     tomorrow,
   );
-  return [...rows.map(toTask), ...done].sort(byDue);
+  return withSteps(db, [...rows.map(toTask), ...done].sort(byDue));
 }
 
 /**
@@ -191,7 +201,7 @@ export async function listTaskEntriesBetween(
     }
   }
   const done = await listDoneOccurrences(db, 'e.original_start >= ? AND e.original_start < ?', from, to);
-  return [...entries, ...done].sort(byDue);
+  return withSteps(db, [...entries, ...done].sort(byDue));
 }
 
 export async function getTask(db: SQLiteDatabase, id: string): Promise<Task | null> {
@@ -199,7 +209,8 @@ export async function getTask(db: SQLiteDatabase, id: string): Promise<Task | nu
     `${SELECT_TASKS} WHERE id = ? AND deleted_at IS NULL`,
     id,
   );
-  return row ? toTask(row) : null;
+  if (!row) return null;
+  return { ...toTask(row), steps: await listSteps(db, id) };
 }
 
 export type TaskInput = {
@@ -294,9 +305,30 @@ export async function setTaskCompleted(db: SQLiteDatabase, id: string, completed
       timestamp,
       id,
     );
+    // The next date starts with every step to do again.
+    await resetSteps(db, id);
   });
   notifyChange('tasks');
   notifyChange('occurrence_exceptions');
+  notifyChange('task_steps');
+}
+
+/**
+ * Ticks a step off or on. Ticking off the last step ticks off the task (a repeating task
+ * then moves to its next date with its steps unticked); unticking one reopens a done task.
+ */
+export async function toggleStep(db: SQLiteDatabase, task: Task, stepId: string) {
+  const step = task.steps.find((item) => item.id === stepId);
+  if (!step) return;
+  await setStepDoneAt(db, stepId, step.doneAt === null ? now() : null);
+  const steps = await listSteps(db, task.id);
+  const allDone = steps.length > 0 && steps.every((item) => item.doneAt !== null);
+  if (allDone && task.completedAt === null) await setTaskCompleted(db, task.id, true);
+  else if (!allDone && task.completedAt !== null && task.occurrence === null) {
+    await setTaskCompleted(db, task.id, false);
+  }
+  notifyChange('task_steps');
+  notifyChange('tasks');
 }
 
 /**
@@ -395,6 +427,7 @@ export async function deleteTask(db: SQLiteDatabase, id: string) {
       id,
     );
     await deleteAttachmentsFor(db, 'task', id, timestamp);
+    await deleteStepsFor(db, id, timestamp);
   });
   notifyChange('tasks');
 }

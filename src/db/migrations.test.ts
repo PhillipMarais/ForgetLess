@@ -10,6 +10,8 @@ const TABLES = [
   'attachments',
   'reminders',
   'occurrence_exceptions',
+  'task_steps',
+  'alarm_skips',
 ];
 
 async function userVersion(db: ReturnType<typeof createTestDatabase>) {

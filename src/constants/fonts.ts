@@ -51,7 +51,7 @@ export const BRAND_FONTS: FontFamilies = {
 
 export const FONT_SETS: Record<FontSetId, FontSet> = {
   brand: {
-    label: 'Forgetless',
+    label: 'ForgetLess',
     description: 'Chakra Petch and IBM Plex, like the logo.',
     families: BRAND_FONTS,
     files: BRAND_FILES,

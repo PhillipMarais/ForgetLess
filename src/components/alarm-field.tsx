@@ -35,7 +35,7 @@ export function useAlarmPermissions(watch: boolean) {
 }
 
 const PROBLEMS: { key: keyof AlarmPermissions; text: string }[] = [
-  { key: 'notifications', text: 'Notifications are off for Forgetless, so alarms can’t ring.' },
+  { key: 'notifications', text: 'Notifications are off for ForgetLess, so alarms can’t ring.' },
   { key: 'exactAlarms', text: 'Alarms may ring a few minutes late until exact alarms are allowed.' },
   { key: 'fullScreen', text: 'Alarms can’t fill the lock screen until you allow it.' },
 ];

@@ -56,7 +56,7 @@ export default function AlarmSettingsScreen() {
       <SettingsPage>
         <SettingsGroup label="Alarms">
           <ThemedText style={styles.padded} themeColor="textSecondary">
-            Alarms ring on your phone. Open Forgetless on your phone to choose the sound.
+            Alarms ring on your phone. Open ForgetLess on your phone to choose the sound.
           </ThemedText>
         </SettingsGroup>
       </SettingsPage>
@@ -148,7 +148,7 @@ export default function AlarmSettingsScreen() {
       </Pressable>
       <ThemedText type="small" themeColor="textSecondary" style={styles.note}>
         Turn on an alarm in a task or event that has a time. Alarms ring even when the phone is
-        locked or Forgetless is closed, and keep ringing until you dismiss or snooze them.
+        locked or ForgetLess is closed, and keep ringing until you dismiss or snooze them.
       </ThemedText>
     </SettingsPage>
   );

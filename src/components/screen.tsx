@@ -25,9 +25,11 @@ type ScreenProps = PropsWithChildren<{
   titleDirection?: -1 | 0 | 1;
   /**
    * A bar above the title, e.g. the app's logo on Today. `action` then sits in this bar and
-   * the title is shown larger, over up to two lines.
+   * the title is shown larger.
    */
   top?: ReactNode;
+  /** Drawn instead of the plain title text (which screen readers still use), e.g. Today's date. */
+  heading?: ReactNode;
 }>;
 
 /** Slide-in for content that changed to the next (+1) or previous (-1) period. */
@@ -44,6 +46,7 @@ export function Screen({
   fullWidth,
   titleDirection = 0,
   top,
+  heading,
   children,
 }: ScreenProps) {
   const theme = useTheme();
@@ -73,9 +76,11 @@ export function Screen({
             entering={slideIn(titleDirection)}
             style={styles.headerText}>
             {subtitle ? <ThemedText type="label">{subtitle}</ThemedText> : null}
-            <ThemedText type={top ? 'title' : 'subtitle'} numberOfLines={top ? 2 : 1} accessibilityRole="header">
-              {title}
-            </ThemedText>
+            {heading ?? (
+              <ThemedText type={top ? 'title' : 'subtitle'} numberOfLines={1} accessibilityRole="header">
+                {title}
+              </ThemedText>
+            )}
           </Animated.View>
           {top ? null : action}
         </View>

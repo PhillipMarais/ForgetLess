@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -9,8 +8,8 @@ import {
   type ScrollViewInstance,
   type NativeSyntheticEvent,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { BottomSheet, SheetDragArea, useSheetClose } from '@/components/bottom-sheet';
 import { Icon, Icons } from '@/components/icon';
 import { ThemedText } from '@/components/themed-text';
 import { fontStyle, Radius, Spacing } from '@/constants/theme';
@@ -80,7 +79,6 @@ type SheetProps = {
 function TimePickerSheet({ title, value, onDone, onCancel }: SheetProps) {
   const theme = useAppTheme();
   const { colors } = theme;
-  const insets = useSafeAreaInsets();
   const twelve = uses12Hour();
   const start = new Date(value);
   const [hours, setHours] = useState(start.getHours());
@@ -125,84 +123,88 @@ function TimePickerSheet({ title, value, onDone, onCancel }: SheetProps) {
     : `${pad(hours)}:${pad(minutes)}`;
 
   return (
-    <Modal visible transparent animationType="slide" onRequestClose={onCancel} statusBarTranslucent>
-      <View style={styles.backdrop}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={onCancel} accessibilityLabel="Cancel" />
-        <View
-          style={[
-            styles.sheet,
-            { backgroundColor: colors.background, borderColor: colors.border, paddingBottom: Spacing.three + insets.bottom },
-          ]}
-          accessibilityViewIsModal>
-          <View style={[styles.handle, { backgroundColor: colors.border }]} />
-          <ThemedText type="label">{title}</ThemedText>
-          <View style={styles.displayRow}>
-            <ThemedText style={[styles.display, fontStyle(theme, 'display', 700)]} accessibilityLiveRegion="polite">
-              {display}
+    <BottomSheet onClose={onCancel} closeLabel="Cancel">
+      <SheetDragArea handle>
+        <ThemedText type="label">{title}</ThemedText>
+        <View style={styles.displayRow}>
+          <ThemedText style={[styles.display, fontStyle(theme, 'display', 700)]} accessibilityLiveRegion="polite">
+            {display}
+          </ThemedText>
+          {twelve ? (
+            <ThemedText type="heading" themeColor="accentText">
+              {pm ? 'PM' : 'AM'}
             </ThemedText>
-            {twelve ? (
-              <ThemedText type="heading" themeColor="accentText">
-                {pm ? 'PM' : 'AM'}
-              </ThemedText>
-            ) : null}
-          </View>
-
-          <View style={styles.wheels}>
-            <View
-              pointerEvents="none"
-              style={[styles.band, { backgroundColor: colors.backgroundSelected, borderColor: colors.accent }]}
-            />
-            <Wheel
-              label="Hour"
-              items={hourItems}
-              index={twelve ? hours % 12 : hours}
-              jump={jump}
-              onChange={(index) => setHours(twelve ? index + (pm ? 12 : 0) : index)}
-            />
-            <ThemedText style={[styles.colon, fontStyle(theme, 'display', 700)]}>:</ThemedText>
-            <Wheel label="Minute" items={minuteItems} index={minutes} jump={jump} onChange={setMinutes} />
-            {twelve ? (
-              <Wheel
-                label="AM or PM"
-                items={['AM', 'PM']}
-                index={pm ? 1 : 0}
-                jump={jump}
-                onChange={(index) => setHours((hours % 12) + (index === 1 ? 12 : 0))}
-              />
-            ) : null}
-          </View>
-
-          <View style={styles.quickRow}>
-            {quick.map((item) => (
-              <QuickChip key={item.label} label={item.label} onPress={item.run} />
-            ))}
-          </View>
-          <View style={styles.quickRow}>
-            <QuickChip label="−15 min" onPress={() => addMinutes(-15)} />
-            <QuickChip label="+15 min" onPress={() => addMinutes(15)} />
-            <QuickChip label="+1 hour" onPress={() => addMinutes(60)} />
-          </View>
-
-          <View style={styles.buttons}>
-            <Pressable
-              accessibilityRole="button"
-              onPress={onCancel}
-              style={({ pressed }) => [styles.button, { borderColor: colors.border, borderWidth: 1 }, pressed && styles.pressed]}>
-              <ThemedText type="defaultBold">Cancel</ThemedText>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => onDone(result())}
-              style={({ pressed }) => [styles.button, { backgroundColor: colors.accent }, pressed && styles.pressed]}>
-              <ThemedText type="defaultBold" themeColor="onAccent">
-                Set {display}
-                {twelve ? ` ${pm ? 'PM' : 'AM'}` : ''}
-              </ThemedText>
-            </Pressable>
-          </View>
+          ) : null}
         </View>
+      </SheetDragArea>
+
+      <View style={styles.wheels}>
+        <View
+          pointerEvents="none"
+          style={[styles.band, { backgroundColor: colors.backgroundSelected, borderColor: colors.accent }]}
+        />
+        <Wheel
+          label="Hour"
+          items={hourItems}
+          index={twelve ? hours % 12 : hours}
+          jump={jump}
+          loop
+          onChange={(index) => setHours(twelve ? index + (pm ? 12 : 0) : index)}
+        />
+        <ThemedText style={[styles.colon, fontStyle(theme, 'display', 700)]}>:</ThemedText>
+        <Wheel label="Minute" items={minuteItems} index={minutes} jump={jump} loop onChange={setMinutes} />
+        {twelve ? (
+          <Wheel
+            label="AM or PM"
+            items={['AM', 'PM']}
+            index={pm ? 1 : 0}
+            jump={jump}
+            onChange={(index) => setHours((hours % 12) + (index === 1 ? 12 : 0))}
+          />
+        ) : null}
       </View>
-    </Modal>
+
+      <SheetDragArea>
+        <View style={styles.quickRow}>
+          {quick.map((item) => (
+            <QuickChip key={item.label} label={item.label} onPress={item.run} />
+          ))}
+        </View>
+        <View style={styles.quickRow}>
+          <QuickChip label="−15 min" onPress={() => addMinutes(-15)} />
+          <QuickChip label="+15 min" onPress={() => addMinutes(15)} />
+          <QuickChip label="+1 hour" onPress={() => addMinutes(60)} />
+        </View>
+        <SheetButtons
+          confirm={`Set ${display}${twelve ? ` ${pm ? 'PM' : 'AM'}` : ''}`}
+          onConfirm={() => onDone(result())}
+        />
+      </SheetDragArea>
+    </BottomSheet>
+  );
+}
+
+/** Cancel and confirm buttons that slide the sheet away first. */
+function SheetButtons({ confirm, onConfirm }: { confirm: string; onConfirm: () => void }) {
+  const colors = useTheme();
+  const close = useSheetClose();
+  return (
+    <View style={styles.buttons}>
+      <Pressable
+        accessibilityRole="button"
+        onPress={() => close()}
+        style={({ pressed }) => [styles.button, { borderColor: colors.border, borderWidth: 1 }, pressed && styles.pressed]}>
+        <ThemedText type="defaultBold">Cancel</ThemedText>
+      </Pressable>
+      <Pressable
+        accessibilityRole="button"
+        onPress={() => close(onConfirm)}
+        style={({ pressed }) => [styles.button, { backgroundColor: colors.accent }, pressed && styles.pressed]}>
+        <ThemedText type="defaultBold" themeColor="onAccent">
+          {confirm}
+        </ThemedText>
+      </Pressable>
+    </View>
   );
 }
 
@@ -228,19 +230,45 @@ type WheelProps = {
   index: number;
   /** Changes when the value is set from outside, to scroll there. */
   jump: number;
+  /** Wrap around: after the last item comes the first again (hours, minutes). */
+  loop?: boolean;
   onChange: (index: number) => void;
 };
 
+/** How many copies of a looping wheel's items are drawn; it re-centres on the middle copy. */
+const CYCLES = 7;
+
 /** A scrolling column that snaps to one item; the item in the middle band is chosen. */
-function Wheel({ label, items, index, jump, onChange }: WheelProps) {
+function Wheel({ label, items, index, jump, loop = false, onChange }: WheelProps) {
   const theme = useAppTheme();
   const ref = useRef<ScrollViewInstance>(null);
-  const [centered, setCentered] = useState(index);
+  const count = items.length;
+  const cycles = loop ? CYCLES : 1;
+  const middle = loop ? Math.floor(CYCLES / 2) * count : 0;
+  // Position in the drawn list (several copies when looping); the value is position % count.
+  const [position, setPosition] = useState(middle + index);
   const settle = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const value = position % count;
 
-  // Scroll to the value when opened and after quick picks; not while the user scrolls.
+  // While the wheel scrolls itself to a value (quick picks, taps), the scroll events it passes
+  // on the way are ignored, so they can't change the value it is heading for.
+  const moving = useRef<{ target: number; until: number } | null>(null);
+
+  const scrollTo = (next: number, animated: boolean) => {
+    moving.current = animated ? { target: next, until: Date.now() + 800 } : null;
+    ref.current?.scrollTo({ y: next * ITEM, animated });
+  };
+
+  // Quick picks move the wheel to the new value…
+  const [seenJump, setSeenJump] = useState(jump);
+  if (jump !== seenJump) {
+    setSeenJump(jump);
+    setPosition(middle + index);
+  }
+
+  // …and scroll there; so does opening. Not while the user scrolls.
   useEffect(() => {
-    ref.current?.scrollTo({ y: index * ITEM, animated: jump > 0 });
+    scrollTo(middle + index, jump > 0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jump]);
 
@@ -248,31 +276,47 @@ function Wheel({ label, items, index, jump, onChange }: WheelProps) {
 
   const onScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const y = event.nativeEvent.contentOffset.y;
-    const next = Math.max(0, Math.min(items.length - 1, Math.round(y / ITEM)));
-    if (next !== centered) {
-      setCentered(next);
-      onChange(next);
+    const heading = moving.current;
+    if (heading) {
+      const arrived = Math.abs(y - heading.target * ITEM) <= 1;
+      if (!arrived && Date.now() < heading.until) return;
+      moving.current = null;
     }
-    // Snap into place once scrolling stops (the browser preview has no native snapping).
+    const next = Math.max(0, Math.min(count * cycles - 1, Math.round(y / ITEM)));
+    if (next !== position) {
+      setPosition(next);
+      if (next % count !== value) onChange(next % count);
+    }
     clearTimeout(settle.current);
     settle.current = setTimeout(() => {
-      if (Math.abs(y - next * ITEM) > 1) ref.current?.scrollTo({ y: next * ITEM, animated: true });
+      if (Math.abs(y - next * ITEM) > 1) {
+        // Snap into place once scrolling stops (the browser preview has no native snapping).
+        scrollTo(next, true);
+      } else if (loop && Math.floor(next / count) !== Math.floor(middle / count)) {
+        // Jump back to the same item in the middle copy, so there is always more to scroll.
+        const centred = middle + (next % count);
+        setPosition(centred);
+        scrollTo(centred, false);
+      }
     }, 120);
   };
 
   const choose = (next: number) => {
-    ref.current?.scrollTo({ y: next * ITEM, animated: true });
-    setCentered(next);
-    onChange(next);
+    scrollTo(next, true);
+    setPosition(next);
+    onChange(next % count);
   };
+
+  const step = (by: number) =>
+    choose(loop ? middle + ((value + by + count) % count) : Math.max(0, Math.min(count - 1, value + by)));
 
   return (
     <View style={styles.wheel} accessibilityLabel={label} accessibilityRole="adjustable"
-      accessibilityValue={{ text: items[centered] }}
+      accessibilityValue={{ text: items[value] }}
       accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
       onAccessibilityAction={({ nativeEvent }) => {
-        if (nativeEvent.actionName === 'increment') choose(Math.min(items.length - 1, centered + 1));
-        if (nativeEvent.actionName === 'decrement') choose(Math.max(0, centered - 1));
+        if (nativeEvent.actionName === 'increment') step(1);
+        if (nativeEvent.actionName === 'decrement') step(-1);
       }}>
       <ScrollView
         ref={ref}
@@ -282,12 +326,12 @@ function Wheel({ label, items, index, jump, onChange }: WheelProps) {
         nestedScrollEnabled
         scrollEventThrottle={16}
         onScroll={onScroll}
-        onLayout={() => ref.current?.scrollTo({ y: index * ITEM, animated: false })}
+        onLayout={() => scrollTo(position, false)}
         contentContainerStyle={styles.wheelContent}>
-        {items.map((item, itemIndex) => {
-          const distance = Math.abs(itemIndex - centered);
+        {Array.from({ length: count * cycles }, (_, itemIndex) => {
+          const distance = Math.abs(itemIndex - position);
           return (
-            <Pressable key={item} onPress={() => choose(itemIndex)} style={styles.item} importantForAccessibility="no">
+            <Pressable key={itemIndex} onPress={() => choose(itemIndex)} style={styles.item} importantForAccessibility="no">
               <ThemedText
                 themeColor={distance === 0 ? 'text' : 'textSecondary'}
                 style={[
@@ -295,7 +339,7 @@ function Wheel({ label, items, index, jump, onChange }: WheelProps) {
                   fontStyle(theme, 'display', distance === 0 ? 700 : 500),
                   { opacity: distance === 0 ? 1 : distance === 1 ? 0.7 : 0.35 },
                 ]}>
-                {item}
+                {items[itemIndex % count]}
               </ThemedText>
             </Pressable>
           );
@@ -317,29 +361,6 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.7,
-  },
-  backdrop: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  },
-  sheet: {
-    width: '100%',
-    maxWidth: 520,
-    alignSelf: 'center',
-    borderTopLeftRadius: Radius.large * 1.5,
-    borderTopRightRadius: Radius.large * 1.5,
-    borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: Spacing.three,
-    paddingTop: Spacing.two,
-    gap: Spacing.three,
-    alignItems: 'center',
-  },
-  handle: {
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-    marginBottom: Spacing.one,
   },
   displayRow: {
     flexDirection: 'row',

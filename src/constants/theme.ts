@@ -44,6 +44,26 @@ export type Theme = {
   colors: ColorTokens;
   /** Custom font files per role and weight; null uses the platform's system font. */
   fonts: FontFamilies | null;
+  /** Multiplies every text size (Settings → Customize → Text size). */
+  textScale: number;
+  /** Multiplies the size of buttons, chips and checkboxes (Settings → Customize → Button size). */
+  controlScale: number;
+};
+
+export type TextSize = 'small' | 'default' | 'large' | 'xlarge';
+export type ControlSize = 'small' | 'default' | 'large';
+
+export const TEXT_SIZES: Record<TextSize, { label: string; scale: number }> = {
+  small: { label: 'Small', scale: 0.9 },
+  default: { label: 'Default', scale: 1 },
+  large: { label: 'Large', scale: 1.15 },
+  xlarge: { label: 'Extra large', scale: 1.3 },
+};
+
+export const CONTROL_SIZES: Record<ControlSize, { label: string; scale: number }> = {
+  small: { label: 'Small', scale: 0.85 },
+  default: { label: 'Default', scale: 1 },
+  large: { label: 'Large', scale: 1.2 },
 };
 
 /**
@@ -84,8 +104,8 @@ export const LIGHT_COLORS = LIGHT;
 export const DARK_COLORS = DARK;
 
 export const Themes: Record<'light' | 'dark', Theme> = {
-  light: { name: 'light', label: 'Light', dark: false, colors: LIGHT, fonts: BRAND_FONTS },
-  dark: { name: 'dark', label: 'Dark', dark: true, colors: DARK, fonts: BRAND_FONTS },
+  light: { name: 'light', label: 'Light', dark: false, colors: LIGHT, fonts: BRAND_FONTS, textScale: 1, controlScale: 1 },
+  dark: { name: 'dark', label: 'Dark', dark: true, colors: DARK, fonts: BRAND_FONTS, textScale: 1, controlScale: 1 },
 };
 
 /** `theme` with another font set (null: the phone's font). */
@@ -93,9 +113,15 @@ export function withFonts(theme: Theme, fonts: FontFamilies | null): Theme {
   return theme.fonts === fonts ? theme : { ...theme, fonts };
 }
 
+/** `theme` with text and button sizes multiplied. */
+export function withSizes(theme: Theme, textScale: number, controlScale: number): Theme {
+  if (theme.textScale === textScale && theme.controlScale === controlScale) return theme;
+  return { ...theme, textScale, controlScale };
+}
+
 /** A theme from user-chosen colours (see lib/custom-theme for how the rest are derived). */
 export function makeTheme(colors: ColorTokens, dark: boolean): Theme {
-  return { name: 'custom', label: 'Custom', dark, colors, fonts: BRAND_FONTS };
+  return { name: 'custom', label: 'Custom', dark, colors, fonts: BRAND_FONTS, textScale: 1, controlScale: 1 };
 }
 
 const SYSTEM_FONTS: Record<FontRole, string | undefined> = {

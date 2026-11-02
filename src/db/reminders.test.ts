@@ -1,9 +1,9 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
-import { planAlarms, taskAlarms } from '@/lib/alarms';
+import { describeTimeUntil, planAlarms, taskAlarms } from '@/lib/alarms';
 
 import { createEvent, deleteEvent } from './events';
-import { getAlarmOffset, listAlarmSources, setAlarmOffset } from './reminders';
+import { getAlarmOffset, listAlarmSources, setAlarmOffset, skipAlarm } from './reminders';
 import { createTask, getTask, setTaskCompleted } from './tasks';
 import { createMigratedTestDatabase } from './testing/test-database';
 
@@ -50,6 +50,9 @@ describe('planning alarms', () => {
         at: at(2026, 11, 2, 20),
         title: 'Pills',
         body: expect.stringContaining('Due now'),
+        ownerType: 'task',
+        ownerId: id,
+        repeating: false,
       },
     ]);
     expect(taskAlarms(task, 15, NOW)[0].at).toBe(at(2026, 11, 2, 19, 45));
@@ -82,5 +85,37 @@ describe('planning alarms', () => {
       ['Pills', at(2026, 11, 2, 20)],
     ]);
     expect(planned.some((alarm) => alarm.id.includes(quiet))).toBe(false);
+  });
+
+  it('leaves out an alarm cancelled on its own, but keeps the other alarms', async () => {
+    const id = await createTask(db, { title: 'Stretch', dueAt: at(2026, 11, 3, 8), rrule: 'FREQ=DAILY' });
+    await setAlarmOffset(db, 'task', id, 0);
+    const [first, second] = await planAlarms(db, NOW);
+    expect(first.repeating).toBe(true);
+
+    await skipAlarm(db, first.id, 'task', id);
+    const after = await planAlarms(db, NOW);
+    expect(after.some((alarm) => alarm.id === first.id)).toBe(false);
+    expect(after[0].id).toBe(second.id);
+  });
+
+  it('plans for one item only when asked', async () => {
+    const a = await createTask(db, { title: 'A', dueAt: at(2026, 11, 2, 20) });
+    const b = await createTask(db, { title: 'B', dueAt: at(2026, 11, 2, 21) });
+    await setAlarmOffset(db, 'task', a, 0);
+    await setAlarmOffset(db, 'task', b, 0);
+    const planned = await planAlarms(db, NOW, { ownerType: 'task', ownerId: b });
+    expect(planned.map((alarm) => alarm.title)).toEqual(['B']);
+  });
+});
+
+describe('describeTimeUntil', () => {
+  const minute = 60_000;
+  it('says how long until an alarm rings, like the clock app', () => {
+    expect(describeTimeUntil(NOW + 20_000, NOW)).toBe('less than a minute');
+    expect(describeTimeUntil(NOW + minute, NOW)).toBe('1 minute');
+    expect(describeTimeUntil(NOW + 125 * minute, NOW)).toBe('2 hours and 5 minutes');
+    expect(describeTimeUntil(NOW + 60 * minute, NOW)).toBe('1 hour');
+    expect(describeTimeUntil(NOW + (26 * 60 + 7) * minute, NOW)).toBe('1 day and 2 hours');
   });
 });

@@ -2,7 +2,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { Radius, Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { useControlSize, useTheme } from '@/hooks/use-theme';
 
 type SegmentedControlProps<T extends string> = {
   /** Read by screen readers as the control's name. */
@@ -20,6 +20,7 @@ export function SegmentedControl<T extends string>({
   onChange,
 }: SegmentedControlProps<T>) {
   const theme = useTheme();
+  const paddingVertical = useControlSize(Spacing.one + Spacing.half);
   return (
     <View
       accessibilityRole="tablist"
@@ -33,7 +34,7 @@ export function SegmentedControl<T extends string>({
             accessibilityRole="tab"
             accessibilityState={{ selected }}
             onPress={() => onChange(option.value)}
-            style={[styles.segment, selected && { backgroundColor: theme.accent }]}>
+            style={[styles.segment, { paddingVertical }, selected && { backgroundColor: theme.accent }]}>
             <ThemedText type="smallBold" themeColor={selected ? 'onAccent' : 'textSecondary'}>
               {option.label}
             </ThemedText>

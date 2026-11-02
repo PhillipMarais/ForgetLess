@@ -23,7 +23,7 @@ type SwipeToDismissProps = PropsWithChildren<{
 }>;
 
 /**
- * Swipe a row to the left to clear it, like a notification. Past about a third of its width
+ * Swipe a row to the right to clear it, like a notification. Past about a third of its width
  * (or with a quick flick) it slides out and `onDismiss` runs; otherwise it springs back.
  */
 export function SwipeToDismiss({ enabled, onDismiss, hint, children }: SwipeToDismissProps) {
@@ -37,14 +37,14 @@ export function SwipeToDismiss({ enabled, onDismiss, hint, children }: SwipeToDi
     failOffsetY: [-12, 12],
     onUpdate: (event) => {
       'worklet';
-      offset.set(Math.min(0, event.translationX));
+      offset.set(Math.max(0, event.translationX));
     },
     onDeactivate: (event) => {
       'worklet';
       const rowWidth = width.get();
-      if (offset.get() < -rowWidth * 0.33 || event.velocityX < -900) {
+      if (offset.get() > rowWidth * 0.33 || event.velocityX > 900) {
         offset.set(
-          withTiming(-rowWidth, { duration: 160 }, (finished) => {
+          withTiming(rowWidth, { duration: 160 }, (finished) => {
             if (finished) scheduleOnRN(onDismiss);
           }),
         );
@@ -56,7 +56,7 @@ export function SwipeToDismiss({ enabled, onDismiss, hint, children }: SwipeToDi
 
   const rowStyle = useAnimatedStyle(() => ({ transform: [{ translateX: offset.get() }] }));
   const hintStyle = useAnimatedStyle(() => ({
-    opacity: Math.min(1, -offset.get() / Math.max(1, width.get() * 0.33)),
+    opacity: Math.min(1, offset.get() / Math.max(1, width.get() * 0.33)),
   }));
 
   return (
@@ -65,10 +65,10 @@ export function SwipeToDismiss({ enabled, onDismiss, hint, children }: SwipeToDi
         <Animated.View
           style={[styles.behind, { backgroundColor: theme.backgroundSelected }, hintStyle]}
           aria-hidden>
+          <Icon name={Icons.swipe} size={20} color="textSecondary" />
           <ThemedText type="smallBold" themeColor="textSecondary">
             {hint}
           </ThemedText>
-          <Icon name={Icons.swipe} size={20} color="textSecondary" />
         </Animated.View>
       ) : null}
       <GestureDetector gesture={pan}>
@@ -90,7 +90,7 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFill,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-end',
+    justifyContent: 'flex-start',
     gap: Spacing.two,
     paddingHorizontal: Spacing.four,
   },

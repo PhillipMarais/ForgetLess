@@ -1,7 +1,7 @@
 {
   "name": "forgetless",
   "version": "1.0.0",
-  "main": "expo-router/entry",
+  "main": "index.ts",
   "dependencies": {
     "@expo-google-fonts/chakra-petch": "^0.4.1",
     "@expo-google-fonts/dm-sans": "^0.4.2",
@@ -29,6 +29,7 @@
     "expo-linear-gradient": "~58.0.3",
     "expo-linking": "~58.0.15",
     "expo-router": "~58.0.29",
+    "expo-speech-recognition": "^58.0.1",
     "expo-splash-screen": "~58.0.12",
     "expo-sqlite": "~58.0.15",
     "expo-status-bar": "~58.0.4",
@@ -38,6 +39,7 @@
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "react-native": "0.88.1",
+    "react-native-android-widget": "^0.26.0",
     "react-native-gesture-handler": "~3.3.0",
     "react-native-keyboard-controller": "1.22.7",
     "react-native-reanimated": "4.7.1",

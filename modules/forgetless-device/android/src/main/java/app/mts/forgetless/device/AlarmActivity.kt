@@ -41,7 +41,7 @@ class AlarmActivity : Activity() {
     alarm = Alarm(
       intent.getStringExtra(Alarms.EXTRA_ID) ?: "",
       System.currentTimeMillis(),
-      intent.getStringExtra(Alarms.EXTRA_TITLE) ?: "Forgetless",
+      intent.getStringExtra(Alarms.EXTRA_TITLE) ?: "ForgetLess",
       intent.getStringExtra(Alarms.EXTRA_BODY) ?: "",
     )
     setContentView(buildLayout())

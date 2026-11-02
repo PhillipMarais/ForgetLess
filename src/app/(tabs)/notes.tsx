@@ -113,7 +113,7 @@ export default function NotesScreen() {
           </Section>
         ) : null}
         {loose.length > 0 ? (
-          <Section title={pinned.length > 0 || categories.length > 0 ? 'Notes' : ''}>
+          <Section title="Notes">
             {noteGrid(loose)}
           </Section>
         ) : null}

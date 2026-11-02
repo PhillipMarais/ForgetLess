@@ -137,6 +137,31 @@ const MIGRATIONS: readonly string[] = [
   ALTER TABLE occurrence_exceptions ADD COLUMN dismissed_on INTEGER;
   ALTER TABLE attachments ADD COLUMN file_name TEXT;
   `,
+  // 5: task steps (a task with steps is done when every step is); single alarms cancelled
+  // from Today (`alarm_key` is the planned alarm's id, see lib/alarms)
+  `
+  CREATE TABLE task_steps (
+    id TEXT PRIMARY KEY NOT NULL,
+    task_id TEXT NOT NULL,
+    title TEXT NOT NULL,
+    done_at INTEGER,
+    sort_order REAL NOT NULL DEFAULT 0,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    deleted_at INTEGER
+  );
+  CREATE INDEX task_steps_task_id ON task_steps (task_id) WHERE deleted_at IS NULL;
+
+  CREATE TABLE alarm_skips (
+    id TEXT PRIMARY KEY NOT NULL,
+    alarm_key TEXT NOT NULL UNIQUE,
+    owner_type TEXT NOT NULL CHECK (owner_type IN ('event', 'task')),
+    owner_id TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    deleted_at INTEGER
+  );
+  `,
 ];
 
 export async function migrate(db: SQLiteDatabase) {

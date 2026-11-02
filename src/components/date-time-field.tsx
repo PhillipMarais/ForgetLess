@@ -9,7 +9,7 @@ import { useTheme } from '@/hooks/use-theme';
 
 /** Shows the value; tapping opens Android's system date or time dialog. */
 export function DateTimeField(props: DateTimeFieldProps) {
-  // Times use Forgetless's own wheel picker on every platform.
+  // Times use ForgetLess's own wheel picker on every platform.
   if (props.mode === 'time') return <TimePickerField {...props} />;
   return <DateField {...props} />;
 }

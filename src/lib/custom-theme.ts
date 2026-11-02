@@ -9,6 +9,8 @@ export type CustomColors = {
   accent: string;
   label: string;
   danger: string;
+  /** Lines between list rows and around cards. */
+  border: string;
 };
 
 export const CUSTOM_COLOR_FIELDS: readonly { key: keyof CustomColors; label: string; hint: string }[] = [
@@ -19,6 +21,7 @@ export const CUSTOM_COLOR_FIELDS: readonly { key: keyof CustomColors; label: str
   { key: 'accent', label: 'Accent', hint: 'Buttons, checkboxes, today' },
   { key: 'label', label: 'Section labels', hint: 'SCHEDULE, OVERDUE…' },
   { key: 'danger', label: 'Warnings', hint: 'Overdue, delete' },
+  { key: 'border', label: 'Divider lines', hint: 'Lines between rows and around cards' },
 ];
 
 /** The starting point for a custom theme: the Dark theme's colours. */
@@ -30,6 +33,7 @@ export const DEFAULT_CUSTOM_COLORS: CustomColors = {
   accent: DARK_COLORS.accent,
   label: DARK_COLORS.label,
   danger: DARK_COLORS.danger,
+  border: DARK_COLORS.border,
 };
 
 /** Picks the user-facing colours out of a full theme, e.g. to start a custom theme from Light. */
@@ -42,6 +46,7 @@ export function customColorsFrom(colors: ColorTokens): CustomColors {
     accent: colors.accent,
     label: colors.label,
     danger: colors.danger,
+    border: colors.border,
   };
 }
 
@@ -88,6 +93,10 @@ export function sanitizeCustomColors(value: unknown): CustomColors {
   for (const { key } of CUSTOM_COLOR_FIELDS) {
     if (isHexColor(source[key])) result[key] = source[key].toUpperCase();
   }
+  // Themes saved before divider lines could be picked: work them out as before.
+  if (Object.keys(source).length > 0 && !isHexColor(source.border)) {
+    result.border = mix(result.background, result.text, 0.15);
+  }
   return result;
 }
 
@@ -111,7 +120,7 @@ export function buildCustomTheme(picked: CustomColors): Theme {
     background: c.background,
     backgroundElement: c.surface,
     backgroundSelected: mix(c.surface, c.text, 0.1),
-    border: mix(c.background, c.text, 0.15),
+    border: c.border,
     accent: c.accent,
     onAccent: ink,
     accentText,

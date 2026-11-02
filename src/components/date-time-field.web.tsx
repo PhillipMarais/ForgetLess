@@ -16,7 +16,7 @@ function toInputValue(mode: DateTimeFieldProps['mode'], value: number) {
 
 /** The browser's own date/time input, so the web preview has a real picker. */
 export function DateTimeField(props: DateTimeFieldProps) {
-  // Times use Forgetless's own wheel picker on every platform.
+  // Times use ForgetLess's own wheel picker on every platform.
   if (props.mode === 'time') return <TimePickerField {...props} />;
   return <DateField {...props} />;
 }

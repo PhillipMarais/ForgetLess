@@ -36,9 +36,17 @@ export function ThemedText({ style, type = 'default', themeColor, ...rest }: The
   const [role, weight] = FONTS[type];
   const color = theme.colors[themeColor ?? (type === 'label' ? 'label' : 'text')];
 
-  return (
-    <Text style={[{ color }, fontStyle(theme, role, weight), styles[type], style]} {...rest} />
-  );
+  const base = [{ color }, fontStyle(theme, role, weight), styles[type], style];
+  return <Text style={theme.textScale === 1 ? base : [base, scaled(base, theme.textScale)]} {...rest} />;
+}
+
+/** The style's font size and line height times `scale`. */
+function scaled(style: TextProps['style'], scale: number): TextStyle {
+  const { fontSize, lineHeight } = StyleSheet.flatten(style) ?? {};
+  return {
+    ...(fontSize ? { fontSize: Math.round(fontSize * scale) } : null),
+    ...(lineHeight ? { lineHeight: Math.round(lineHeight * scale) } : null),
+  };
 }
 
 const styles = StyleSheet.create<Record<TextType, TextStyle>>({

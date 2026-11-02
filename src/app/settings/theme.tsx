@@ -3,11 +3,22 @@ import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, View, useColorScheme } from 'react-native';
 
 import { Icon, Icons } from '@/components/icon';
-import { SettingsGroup, SettingsPage } from '@/components/settings-row';
+import { SettingChoices, SettingsGroup, SettingsPage } from '@/components/settings-row';
 import { ThemeSample } from '@/components/theme-sample';
 import { ThemedText } from '@/components/themed-text';
 import { FONT_SET_IDS, FONT_SETS, isFontSetLoaded, loadFontSet, type FontSetId } from '@/constants/fonts';
-import { Radius, Spacing, Themes, withFonts, type Theme } from '@/constants/theme';
+import {
+  CONTROL_SIZES,
+  Radius,
+  Spacing,
+  TEXT_SIZES,
+  Themes,
+  withFonts,
+  withSizes,
+  type ControlSize,
+  type TextSize,
+  type Theme,
+} from '@/constants/theme';
 import type { ThemeSetting } from '@/db/settings';
 import { useSettings } from '@/hooks/use-settings';
 import { ThemeScope, useAppTheme, useTheme } from '@/hooks/use-theme';
@@ -68,7 +79,79 @@ export default function ThemeSettingsScreen() {
       <SettingsGroup label="Font">
         <FontChoices value={settings.fontSet} onChange={(fontSet) => setSetting('fontSet', fontSet)} />
       </SettingsGroup>
+
+      <SettingsGroup label="Text size">
+        <SettingChoices
+          label="Text size"
+          options={TEXT_SIZE_OPTIONS}
+          value={settings.textSize}
+          onChange={(value) => setSetting('textSize', value)}
+          preview={(value) => <TextSizeExample size={value} />}
+        />
+      </SettingsGroup>
+
+      <SettingsGroup label="Button size">
+        <SettingChoices
+          label="Button size"
+          options={CONTROL_SIZE_OPTIONS}
+          value={settings.controlSize}
+          onChange={(value) => setSetting('controlSize', value)}
+          preview={(value) => <ButtonSizeExample size={value} />}
+        />
+      </SettingsGroup>
     </SettingsPage>
+  );
+}
+
+const TEXT_SIZE_OPTIONS = (Object.keys(TEXT_SIZES) as TextSize[]).map((value) => ({
+  value,
+  title: TEXT_SIZES[value].label,
+}));
+
+const CONTROL_SIZE_OPTIONS = (Object.keys(CONTROL_SIZES) as ControlSize[]).map((value) => ({
+  value,
+  title: CONTROL_SIZES[value].label,
+}));
+
+/** A task title and time at `size`, the way they'd look in a list. */
+function TextSizeExample({ size }: { size: TextSize }) {
+  const theme = useAppTheme();
+  return (
+    <ThemeScope theme={withSizes(theme, TEXT_SIZES[size].scale, theme.controlScale)}>
+      <View style={styles.example} aria-hidden>
+        <ThemedText type="defaultBold" numberOfLines={1}>
+          Buy milk
+        </ThemedText>
+        <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
+          Today 17:00
+        </ThemedText>
+      </View>
+    </ThemeScope>
+  );
+}
+
+/** A tick box and an "Add" button at `size`. */
+function ButtonSizeExample({ size }: { size: ControlSize }) {
+  const theme = useAppTheme();
+  const scale = CONTROL_SIZES[size].scale;
+  const box = Math.round(26 * scale);
+  return (
+    <View style={styles.buttonExample} aria-hidden>
+      <View style={[styles.exampleBox, { width: box, height: box, borderRadius: box / 2, borderColor: theme.colors.accent }]} />
+      <View
+        style={[
+          styles.exampleButton,
+          {
+            backgroundColor: theme.colors.accent,
+            paddingHorizontal: Math.round(Spacing.three * scale),
+            paddingVertical: Math.round(Spacing.two * scale),
+          },
+        ]}>
+        <ThemedText type="smallBold" themeColor="onAccent">
+          Add
+        </ThemedText>
+      </View>
+    </View>
   );
 }
 
@@ -188,6 +271,20 @@ const styles = StyleSheet.create({
   },
   flex: {
     flex: 1,
+  },
+  example: {
+    alignItems: 'flex-end',
+  },
+  buttonExample: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
+  exampleBox: {
+    borderWidth: 2,
+  },
+  exampleButton: {
+    borderRadius: Radius.pill,
   },
   editButton: {
     flexDirection: 'row',

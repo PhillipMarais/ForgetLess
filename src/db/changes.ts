@@ -9,7 +9,9 @@ export type Table =
   | 'note_categories'
   | 'attachments'
   | 'reminders'
-  | 'occurrence_exceptions';
+  | 'occurrence_exceptions'
+  | 'task_steps'
+  | 'alarm_skips';
 
 type Listener = (table: Table) => void;
 

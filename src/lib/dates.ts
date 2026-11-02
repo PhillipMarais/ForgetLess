@@ -130,3 +130,10 @@ export function formatLongDate(time: number = Date.now()) {
     month: 'long',
   });
 }
+
+/** "Monday, 12 August, 12:30 AM": the title a voice note starts with. */
+export function voiceNoteTitle(time = Date.now()) {
+  const date = new Date(time);
+  const day = date.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
+  return `${day}, ${formatTime(time)}`;
+}

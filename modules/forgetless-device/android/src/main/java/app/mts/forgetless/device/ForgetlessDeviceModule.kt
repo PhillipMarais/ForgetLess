@@ -9,6 +9,9 @@ import android.graphics.pdf.PdfRenderer
 import android.media.AudioAttributes
 import android.media.Ringtone
 import android.media.RingtoneManager
+import android.media.ToneGenerator
+import android.os.Handler
+import android.os.Looper
 import android.net.Uri
 import android.os.Build
 import android.os.ParcelFileDescriptor
@@ -35,7 +38,7 @@ class AlarmConfigRecord : Record {
   @Field var snoozeMinutes: Int = 10
 }
 
-/** Forgetless's own Android features: alarms, alarm sounds, and PDF pages as pictures. */
+/** ForgetLess's own Android features: alarms, alarm sounds, a ping, and PDF pages as pictures. */
 class ForgetlessDeviceModule : Module() {
   private val context: Context
     get() = appContext.reactContext ?: throw Exceptions.ReactContextLost()
@@ -105,7 +108,7 @@ class ForgetlessDeviceModule : Module() {
 
     Function("previewSound") { uri: String? ->
       preview?.stop()
-      val sound = Alarms.soundUri(AlarmConfig(uri, false, 10))
+      val sound = Alarms.soundUri(context, AlarmConfig(uri, false, 10))
       preview = RingtoneManager.getRingtone(context, sound)?.apply {
         audioAttributes = AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ALARM).build()
         play()
@@ -115,6 +118,18 @@ class ForgetlessDeviceModule : Module() {
     Function("stopPreview") {
       preview?.stop()
       preview = null
+    }
+
+    /** A short "ping", e.g. when a voice note starts listening. */
+    Function("playPing") {
+      val tone = ToneGenerator(android.media.AudioManager.STREAM_NOTIFICATION, 90)
+      tone.startTone(ToneGenerator.TONE_PROP_BEEP, 160)
+      Handler(Looper.getMainLooper()).postDelayed({ tone.release() }, 400)
+    }
+
+    /** Sends the app to the background, back to the home screen (like pressing Home). */
+    Function("moveToBack") {
+      appContext.currentActivity?.let { activity -> activity.runOnUiThread { activity.moveTaskToBack(true) } }
     }
 
     OnDestroy {

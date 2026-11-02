@@ -1,6 +1,7 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
 import { FONT_SET_IDS, type FontSetId } from '@/constants/fonts';
+import { CONTROL_SIZES, TEXT_SIZES, type ControlSize, type TextSize } from '@/constants/theme';
 import { DEFAULT_CUSTOM_COLORS, sanitizeCustomColors, type CustomColors } from '@/lib/custom-theme';
 
 import { now } from './ids';
@@ -14,7 +15,18 @@ export const DEFAULT_SETTINGS = {
    * ticked off. Off: missed dates are skipped and the task moves on to its next date.
    */
   blockRepeatsUntilDone: true,
+  /** The calendar view last used; the calendar opens on it when calendarStartView is 'recent'. */
   calendarView: 'month' as CalendarView,
+  /** Which view the calendar opens on. */
+  calendarStartView: 'recent' as CalendarStartView,
+  /** New tasks start with a date (today)… */
+  taskDefaultDate: false,
+  /** …and a time (the next hour; needs taskDefaultDate)… */
+  taskDefaultTime: false,
+  /** …and an alarm at that time (needs taskDefaultTime). */
+  taskDefaultAlarm: false,
+  textSize: 'default' as TextSize,
+  controlSize: 'default' as ControlSize,
   /** Colours for the Custom theme. */
   customColors: DEFAULT_CUSTOM_COLORS as CustomColors,
   /** Fonts for every theme; see FONT_SETS in constants/fonts. */
@@ -31,9 +43,11 @@ export const SNOOZE_CHOICES = [5, 10, 15, 30] as const;
 
 export type ThemeSetting = 'system' | 'light' | 'dark' | 'custom';
 export type CalendarView = 'day' | 'week' | 'month';
+export type CalendarStartView = 'recent' | CalendarView;
 
 const THEME_SETTINGS: readonly string[] = ['system', 'light', 'dark', 'custom'];
 const CALENDAR_VIEWS: readonly string[] = ['day', 'week', 'month'];
+const CALENDAR_START_VIEWS: readonly string[] = ['recent', ...CALENDAR_VIEWS];
 
 /**
  * Checks a stored value and upgrades old ones; returns undefined to fall back to the default.
@@ -45,6 +59,9 @@ function normalize(key: SettingKey, value: unknown): unknown {
     return THEME_SETTINGS.includes(value as string) ? value : undefined;
   }
   if (key === 'calendarView') return CALENDAR_VIEWS.includes(value as string) ? value : undefined;
+  if (key === 'calendarStartView') return CALENDAR_START_VIEWS.includes(value as string) ? value : undefined;
+  if (key === 'textSize') return (value as string) in TEXT_SIZES ? value : undefined;
+  if (key === 'controlSize') return (value as string) in CONTROL_SIZES ? value : undefined;
   if (key === 'customColors') return value && typeof value === 'object' ? sanitizeCustomColors(value) : undefined;
   if (key === 'fontSet') return FONT_SET_IDS.includes(value as FontSetId) ? value : undefined;
   if (key === 'alarmSoundUri') return value === null || typeof value === 'string' ? value : undefined;

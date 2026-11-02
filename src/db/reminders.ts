@@ -87,6 +87,31 @@ export async function listAlarmSources(db: SQLiteDatabase): Promise<AlarmSource[
   }));
 }
 
+/** Cancels one planned alarm (by its id, see lib/alarms) without touching the others. */
+export async function skipAlarm(db: SQLiteDatabase, alarmKey: string, ownerType: ReminderOwner, ownerId: string) {
+  const timestamp = now();
+  await db.runAsync(
+    `INSERT INTO alarm_skips (id, alarm_key, owner_type, owner_id, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?)
+     ON CONFLICT (alarm_key) DO UPDATE SET deleted_at = NULL, updated_at = excluded.updated_at`,
+    newId(),
+    alarmKey,
+    ownerType,
+    ownerId,
+    timestamp,
+    timestamp,
+  );
+  notifyChange('alarm_skips');
+}
+
+/** Ids of alarms cancelled one by one. */
+export async function listSkippedAlarms(db: SQLiteDatabase): Promise<Set<string>> {
+  const rows = await db.getAllAsync<{ alarm_key: string }>(
+    'SELECT alarm_key FROM alarm_skips WHERE deleted_at IS NULL',
+  );
+  return new Set(rows.map((row) => row.alarm_key));
+}
+
 /** Choices for "Alarm" in the task and event editors. */
 export const ALARM_OFFSETS: readonly { label: string; value: number }[] = [
   { label: 'At the time', value: 0 },

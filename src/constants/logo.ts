@@ -1,5 +1,5 @@
 /**
- * The Forgetless "FL" monogram: slanted F and L in ink (or white) with signal-orange cuts.
+ * The ForgetLess "FL" monogram: slanted F and L in ink (or white) with signal-orange cuts.
  * Shared by the in-app logo (components/logo.tsx) and the icon generator
  * (scripts/generate-brand-assets.mjs), so the app and its icons always match.
  */

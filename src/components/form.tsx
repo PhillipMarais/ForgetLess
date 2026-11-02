@@ -3,7 +3,7 @@ import { StyleSheet, Switch, TextInput, View, type TextInputProps } from 'react-
 
 import { ThemedText } from '@/components/themed-text';
 import { fontStyle, Radius, Spacing } from '@/constants/theme';
-import { useAppTheme, useTheme } from '@/hooks/use-theme';
+import { useAppTheme, useFontSize, useTheme } from '@/hooks/use-theme';
 
 /** A labelled block in an editor form. */
 export function FormSection({ label, children }: PropsWithChildren<{ label?: string }>) {
@@ -64,6 +64,7 @@ export function FormTextInput({
 }: TextInputProps & { /** 'title': larger, in the display font. */ variant?: 'title' }) {
   const theme = useAppTheme();
   const { colors } = theme;
+  const fontSize = useFontSize(variant === 'title' ? 20 : 16);
   return (
     <TextInput
       placeholderTextColor={colors.textSecondary}
@@ -76,7 +77,7 @@ export function FormTextInput({
           ? [fontStyle(theme, 'display', 600), styles.title]
           : fontStyle(theme, 'body', 400),
         multiline && styles.multiline,
-        { color: colors.text, backgroundColor: colors.backgroundElement },
+        { color: colors.text, backgroundColor: colors.backgroundElement, fontSize },
         style,
       ]}
       {...props}

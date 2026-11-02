@@ -50,7 +50,7 @@ export default function SettingsLayout() {
       <Tabs.Screen
         name="theme"
         options={{
-          title: 'Theme',
+          title: 'Customize',
           tabBarIcon: ({ focused }) => (
             <Icon name={Icons.theme} size={22} color={focused ? 'accentText' : 'textSecondary'} />
           ),

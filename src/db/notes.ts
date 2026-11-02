@@ -81,6 +81,20 @@ export async function listNotesInCategory(db: SQLiteDatabase, categoryId: string
   return rows.map(toNote);
 }
 
+/** Notes written or last edited within [from, to), newest first: a day's notes in the calendar. */
+export async function listNotesTouchedBetween(db: SQLiteDatabase, from: number, to: number): Promise<Note[]> {
+  const rows = await db.getAllAsync<NoteRow>(
+    `${SELECT_NOTES} WHERE deleted_at IS NULL
+       AND ((created_at >= ? AND created_at < ?) OR (updated_at >= ? AND updated_at < ?))
+     ORDER BY updated_at DESC`,
+    from,
+    to,
+    from,
+    to,
+  );
+  return rows.map(toNote);
+}
+
 export async function getNote(db: SQLiteDatabase, id: string): Promise<Note | null> {
   const row = await db.getFirstAsync<NoteRow>(
     `${SELECT_NOTES} WHERE id = ? AND deleted_at IS NULL`,
