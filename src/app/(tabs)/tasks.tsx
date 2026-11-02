@@ -1,13 +1,13 @@
 import { useSQLiteContext } from 'expo-sqlite';
 import { useState } from 'react';
-import { FlatList, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { FlatList, StyleSheet, TextInput, View } from 'react-native';
 
+import { ChipGroup } from '@/components/chip';
 import { EmptyState } from '@/components/empty-state';
 import { Icons } from '@/components/icon';
 import { IconButton } from '@/components/icon-button';
 import { Screen } from '@/components/screen';
 import { TaskRow } from '@/components/task-row';
-import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { createTask, listTasks } from '@/db/tasks';
 import { useLiveQuery } from '@/db/use-live-query';
@@ -15,12 +15,13 @@ import { useTheme } from '@/hooks/use-theme';
 import { addDays, startOfDay } from '@/lib/dates';
 
 const DUE_OPTIONS = [
-  { label: 'No date', days: null },
-  { label: 'Today', days: 0 },
-  { label: 'Tomorrow', days: 1 },
+  { label: 'No date', value: null },
+  { label: 'Today', value: 0 },
+  { label: 'Tomorrow', value: 1 },
 ] as const;
 
-type DueDays = (typeof DUE_OPTIONS)[number]['days'];
+/** Days from today, or null for no due date. */
+type DueDays = (typeof DUE_OPTIONS)[number]['value'];
 
 export default function TasksScreen() {
   const { data: tasks } = useLiveQuery(['tasks'], 'all', listTasks);
@@ -90,27 +91,7 @@ function AddTask() {
           onPress={add}
         />
       </View>
-      <View style={styles.chips} accessibilityRole="radiogroup" accessibilityLabel="Due date">
-        {DUE_OPTIONS.map((option) => {
-          const selected = option.days === dueDays;
-          return (
-            <Pressable
-              key={option.label}
-              accessibilityRole="radio"
-              accessibilityState={{ checked: selected }}
-              onPress={() => setDueDays(option.days)}
-              style={[
-                styles.chip,
-                { borderColor: selected ? theme.accent : theme.border },
-                selected && { backgroundColor: theme.accent },
-              ]}>
-              <ThemedText type="small" themeColor={selected ? 'onAccent' : 'textSecondary'}>
-                {option.label}
-              </ThemedText>
-            </Pressable>
-          );
-        })}
-      </View>
+      <ChipGroup label="Due date" options={DUE_OPTIONS} value={dueDays} onChange={setDueDays} />
     </View>
   );
 }
@@ -134,15 +115,5 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     paddingVertical: Spacing.two,
-  },
-  chips: {
-    flexDirection: 'row',
-    gap: Spacing.two,
-  },
-  chip: {
-    borderWidth: 1,
-    borderRadius: Spacing.four,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.one,
   },
 });

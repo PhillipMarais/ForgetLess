@@ -1,4 +1,12 @@
-import { addDays, daysFromToday, formatDueLabel, startOfDay } from './dates';
+import {
+  addDays,
+  addMonths,
+  daysFromToday,
+  formatDueLabel,
+  monthGridDays,
+  startOfDay,
+  withTimeOf,
+} from './dates';
 
 // Mon 2 Nov 2026, 15:30 local time.
 const NOW = new Date(2026, 10, 2, 15, 30);
@@ -63,5 +71,32 @@ describe('formatDueLabel', () => {
   it('includes the year only for other years', () => {
     expect(formatDueLabel(new Date(2026, 11, 25).getTime(), true)).not.toMatch(/2026/);
     expect(formatDueLabel(new Date(2027, 0, 5).getTime(), true)).toMatch(/2027/);
+  });
+});
+
+describe('monthGridDays', () => {
+  it('covers the month in 6 Monday-first weeks', () => {
+    const days = monthGridDays(NOW.getTime()).map((time) => new Date(time));
+
+    expect(days).toHaveLength(42);
+    expect(days.every((day, index) => day.getDay() === (index + 1) % 7)).toBe(true);
+    // November 2026 starts on a Sunday, so the grid starts Monday 26 October.
+    expect([days[0].getMonth(), days[0].getDate()]).toEqual([9, 26]);
+    expect(days.filter((day) => day.getMonth() === 10)).toHaveLength(30);
+    expect(days.every((day) => day.getHours() === 0)).toBe(true);
+  });
+});
+
+describe('addMonths', () => {
+  it('returns the 1st of the target month, across years', () => {
+    const result = new Date(addMonths(new Date(2026, 11, 31).getTime(), 2));
+    expect([result.getFullYear(), result.getMonth(), result.getDate()]).toEqual([2027, 1, 1]);
+  });
+});
+
+describe('withTimeOf', () => {
+  it("puts one time's hours and minutes on another day", () => {
+    const result = new Date(withTimeOf(new Date(2026, 0, 5).getTime(), NOW.getTime()));
+    expect([result.getDate(), result.getHours(), result.getMinutes()]).toEqual([5, 15, 30]);
   });
 });

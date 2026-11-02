@@ -11,6 +11,8 @@ export default function RootLayout() {
         <Stack>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="note/[id]" options={{ title: 'Note' }} />
+          <Stack.Screen name="event/[id]" options={{ title: 'Event' }} />
+          <Stack.Screen name="task/[id]" options={{ title: 'Task' }} />
         </Stack>
       </DatabaseProvider>
     </ThemeProvider>

@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { Pressable, StyleSheet, View } from 'react-native';
 
@@ -23,27 +24,29 @@ export function TaskRow({ task }: { task: Task }) {
         accessibilityLabel={task.title}
         onPress={() => setTaskCompleted(db, task.id, !done)}
         hitSlop={Spacing.two}
-        style={styles.main}>
-        <View
-          style={[
-            styles.checkbox,
-            { borderColor: done ? theme.accent : theme.textSecondary },
-            done && { backgroundColor: theme.accent },
-          ]}>
-          {done ? <Icon name={Icons.check} size={16} color="onAccent" /> : null}
-        </View>
-        <View style={styles.text}>
-          <ThemedText
-            themeColor={done ? 'textSecondary' : 'text'}
-            style={done && styles.doneTitle}>
-            {task.title}
-          </ThemedText>
-          {task.dueAt !== null ? (
+        style={[
+          styles.checkbox,
+          { borderColor: done ? theme.accent : theme.textSecondary },
+          done && { backgroundColor: theme.accent },
+        ]}>
+        {done ? <Icon name={Icons.check} size={16} color="onAccent" /> : null}
+      </Pressable>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`Edit ${task.title}`}
+        onPress={() => router.push({ pathname: '/task/[id]', params: { id: task.id } })}
+        style={({ pressed }) => [styles.text, pressed && styles.pressed]}>
+        <ThemedText themeColor={done ? 'textSecondary' : 'text'} style={done && styles.doneTitle}>
+          {task.title}
+        </ThemedText>
+        {task.dueAt !== null ? (
+          <View style={styles.due}>
             <ThemedText type="small" themeColor={overdue ? 'danger' : 'textSecondary'}>
               {formatDueLabel(task.dueAt, task.dueAllDay)}
             </ThemedText>
-          ) : null}
-        </View>
+            {task.rrule ? <Icon name={Icons.repeat} size={14} color="textSecondary" /> : null}
+          </View>
+        ) : null}
       </Pressable>
       <IconButton
         icon={Icons.delete}
@@ -59,16 +62,11 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: Spacing.three,
     paddingLeft: Spacing.three,
     paddingRight: Spacing.two,
     paddingVertical: Spacing.two,
     borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  main: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.three,
   },
   checkbox: {
     width: 24,
@@ -80,6 +78,14 @@ const styles = StyleSheet.create({
   },
   text: {
     flex: 1,
+  },
+  pressed: {
+    opacity: 0.6,
+  },
+  due: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.one,
   },
   doneTitle: {
     textDecorationLine: 'line-through',

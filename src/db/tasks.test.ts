@@ -4,9 +4,12 @@ import { subscribeToChanges } from './changes';
 import {
   createTask,
   deleteTask,
+  getTask,
   listOpenTasksDueBefore,
   listTasks,
+  listTasksDueBetween,
   setTaskCompleted,
+  updateTask,
 } from './tasks';
 import { createMigratedTestDatabase } from './testing/test-database';
 
@@ -68,6 +71,66 @@ describe('setTaskCompleted', () => {
 
     await setTaskCompleted(db, id, false);
     expect((await listTasks(db))[0].completedAt).toBeNull();
+  });
+});
+
+describe('repeating tasks', () => {
+  it('completing moves the task to its next due date and logs the done occurrence', async () => {
+    const id = await createTask(db, { title: 'Water plants', dueAt: NOW, rrule: 'FREQ=WEEKLY' });
+    await setTaskCompleted(db, id, true);
+
+    expect(await getTask(db, id)).toMatchObject({ dueAt: NOW + 7 * DAY, completedAt: null });
+    const log = await db.getAllAsync<{ original_start: number; completed_at: number }>(
+      "SELECT * FROM occurrence_exceptions WHERE owner_type = 'task' AND owner_id = ?",
+      id,
+    );
+    expect(log).toEqual([expect.objectContaining({ original_start: NOW, completed_at: expect.any(Number) })]);
+  });
+
+  it('is completed for good once the series has no more occurrences', async () => {
+    const id = await createTask(db, { title: 'Twice', dueAt: NOW, rrule: 'FREQ=DAILY;COUNT=1' });
+    await setTaskCompleted(db, id, true);
+
+    expect((await getTask(db, id))?.completedAt).toEqual(expect.any(Number));
+  });
+
+  it('drops the repeat rule from tasks without a due date', async () => {
+    const id = await createTask(db, { title: 'Undated', rrule: 'FREQ=DAILY' });
+    expect((await getTask(db, id))?.rrule).toBeNull();
+  });
+});
+
+describe('updateTask', () => {
+  it('saves every editable field', async () => {
+    const id = await createTask(db, { title: 'Draft' });
+    await updateTask(db, id, {
+      title: ' Final ',
+      notes: 'Details',
+      dueAt: NOW,
+      dueAllDay: false,
+      rrule: 'FREQ=MONTHLY',
+    });
+
+    expect(await getTask(db, id)).toMatchObject({
+      title: 'Final',
+      notes: 'Details',
+      dueAt: NOW,
+      dueAllDay: false,
+      rrule: 'FREQ=MONTHLY',
+    });
+  });
+});
+
+describe('listTasksDueBetween', () => {
+  it('returns open and completed tasks due in the range', async () => {
+    await createTask(db, { title: 'Before', dueAt: NOW - DAY });
+    await createTask(db, { title: 'Inside', dueAt: NOW });
+    const doneId = await createTask(db, { title: 'Done inside', dueAt: NOW + 1 });
+    await createTask(db, { title: 'At end', dueAt: NOW + DAY });
+    await setTaskCompleted(db, doneId, true);
+
+    const titles = (await listTasksDueBetween(db, NOW, NOW + DAY)).map((task) => task.title);
+    expect(titles).toEqual(['Inside', 'Done inside']);
   });
 });
 

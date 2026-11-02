@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { router } from 'expo-router';
 import type { SQLiteDatabase } from 'expo-sqlite';
 
 import { TaskRow } from './task-row';
@@ -9,6 +10,10 @@ let mockDb: SQLiteDatabase;
 
 jest.mock('expo-sqlite', () => ({
   useSQLiteContext: () => mockDb,
+}));
+
+jest.mock('expo-router', () => ({
+  router: { push: jest.fn() },
 }));
 
 async function addTask(input: Parameters<typeof createTask>[1]): Promise<Task> {
@@ -52,4 +57,13 @@ it('deletes the task when the delete button is pressed', async () => {
   await waitFor(async () => {
     expect(await listTasks(mockDb)).toEqual([]);
   });
+});
+
+it('opens the task editor when the title is pressed', async () => {
+  const task = await addTask({ title: 'Plan trip' });
+  await render(<TaskRow task={task} />);
+
+  await fireEvent.press(screen.getByRole('button', { name: 'Edit Plan trip' }));
+
+  expect(router.push).toHaveBeenCalledWith({ pathname: '/task/[id]', params: { id: task.id } });
 });
