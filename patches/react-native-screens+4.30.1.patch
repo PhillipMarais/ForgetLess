@@ -1,0 +1,15 @@
+diff --git a/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStackHeaderConfig.kt b/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStackHeaderConfig.kt
+index 68b8d85..a2a3fcd 100644
+--- a/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStackHeaderConfig.kt
++++ b/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStackHeaderConfig.kt
+@@ -397,6 +397,10 @@ class ScreenStackHeaderConfig(
+                 else -> {}
+             }
+             view.layoutParams = params
++            // ForgetLess patch: a header button can still be attached to an old toolbar (when the
++            // header updates around a modal or a closing screen); adding it again then crashes with
++            // "The specified child already has a parent". Detach it first.
++            (view.parent as? android.view.ViewGroup)?.removeView(view)
+             toolbar.addView(view)
+             i++
+         }
