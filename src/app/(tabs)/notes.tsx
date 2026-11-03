@@ -81,7 +81,7 @@ export default function NotesScreen() {
           <SelectionBar selection={selection} notes={[...pinned, ...voice, ...loose]} categories={categories} />
         ) : pinned.length + voice.length + loose.length > 1 || categories.length > 1 ? (
           <ThemedText type="small" themeColor="textSecondary">
-            Hold a note or category to select several.
+            Hold a note to pin, move, share or delete it (or select several).
           </ThemedText>
         ) : null}
 

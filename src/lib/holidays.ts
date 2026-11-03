@@ -1,17 +1,87 @@
+import type HolidaysLibrary from 'date-holidays';
+
 import { addDays, startOfDay } from './dates';
 
 /**
- * Public holidays, worked out on the phone (no internet or paid service). Days declared one
- * year at a time (e.g. election days) can't be known in advance and aren't included.
+ * Public holidays, worked out on the phone (no internet or paid service). South Africa's are
+ * built in; every other country's come from the date-holidays library (data CC BY 3.0). Days
+ * declared one year at a time (e.g. election days) can't be known in advance and aren't
+ * included.
  */
-export const HOLIDAY_REGIONS = [
-  { value: 'ZA', title: 'South Africa', description: 'Shows South African public holidays in the calendar.' },
-  { value: 'none', title: 'None', description: 'Don’t show public holidays.' },
-] as const;
 
-export type HolidayRegion = (typeof HOLIDAY_REGIONS)[number]['value'];
+/** 'auto' follows the phone's region (no location access needed); else a country code. */
+export type HolidayRegion = string;
 
-export const HOLIDAY_REGION_VALUES: readonly string[] = HOLIDAY_REGIONS.map((region) => region.value);
+/** The phone's country from its language and region setting, e.g. 'ZA' for en-ZA. */
+export function phoneRegion(): string | null {
+  try {
+    // e.g. "en-ZA" or "af-Latn-ZA"; the region is the two capital letters.
+    const locale = Intl.DateTimeFormat().resolvedOptions().locale;
+    return /[-_]([A-Z]{2})(?:$|[-_])/.exec(locale)?.[1] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+let library: typeof HolidaysLibrary | null = null;
+
+/** Loaded on first use: the holiday data is large and not needed at start-up. */
+function holidaysLibrary() {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  library ??= require('date-holidays') as typeof HolidaysLibrary;
+  return library;
+}
+
+let countries: Record<string, string> | null = null;
+
+/** Every country with known holidays, by code. */
+function countryNames() {
+  countries ??= { ...new (holidaysLibrary())().getCountries('en'), ZA: 'South Africa' };
+  return countries;
+}
+
+export function isHolidayRegion(value: unknown): value is HolidayRegion {
+  return value === 'auto' || value === 'none' || (typeof value === 'string' && value in countryNames());
+}
+
+/** The country `region` stands for, or null for none. */
+export function resolveHolidayRegion(region: HolidayRegion): string | null {
+  if (region === 'none') return null;
+  if (region === 'auto') {
+    const phone = phoneRegion();
+    return phone && phone in countryNames() ? phone : null;
+  }
+  return region;
+}
+
+/** A setting's name for people, e.g. "Automatic (South Africa)". */
+export function holidayRegionTitle(region: HolidayRegion) {
+  if (region === 'none') return 'None';
+  if (region === 'auto') {
+    const country = resolveHolidayRegion('auto');
+    return country ? `Automatic (${countryNames()[country]})` : 'Automatic';
+  }
+  return countryNames()[region] ?? region;
+}
+
+/** Choices for Settings: Automatic, None, then every country by name. */
+export function holidayRegionChoices() {
+  const phone = resolveHolidayRegion('auto');
+  const names = countryNames();
+  return [
+    {
+      value: 'auto',
+      title: holidayRegionTitle('auto'),
+      description: phone
+        ? 'Follows the region set on your phone.'
+        : 'Your phone has no region set, so no holidays show. Pick a country instead.',
+    },
+    { value: 'none', title: 'None', description: 'Don’t show public holidays.' },
+    ...Object.entries(names)
+      .sort(([, a], [, b]) => a.localeCompare(b))
+      .map(([code, name]) => ({ value: code, title: name, description: undefined as string | undefined })),
+  ];
+}
 
 /** Easter Sunday of `year` (Gregorian calendar), as local midnight. */
 export function easterSunday(year: number) {
@@ -64,14 +134,38 @@ function southAfrica(year: number): Map<number, string> {
   return result;
 }
 
+const yearCache = new Map<string, Map<number, string>>();
+
+/** One country's public holidays in a year, by day start (local midnight). */
+function countryHolidays(country: string, year: number): Map<number, string> {
+  const key = `${country}:${year}`;
+  let result = yearCache.get(key);
+  if (result) return result;
+  result = new Map();
+  if (country === 'ZA') result = southAfrica(year);
+  else {
+    const Holidays = holidaysLibrary();
+    for (const holiday of new Holidays(country).getHolidays(year, 'en') || []) {
+      if (holiday.type !== 'public') continue;
+      // "2026-04-27 00:00:00": the date in that country, shown as that day here.
+      const [y, m, d] = holiday.date.slice(0, 10).split('-').map(Number);
+      const day = new Date(y, m - 1, d).getTime();
+      if (!result.has(day)) result.set(day, holiday.name);
+    }
+  }
+  yearCache.set(key, result);
+  return result;
+}
+
 /** Holidays within [from, to), by day start (local midnight), with their names. */
 export function holidaysBetween(region: HolidayRegion, from: number, to: number): Map<number, string> {
   const result = new Map<number, string>();
-  if (region === 'none') return result;
+  const country = resolveHolidayRegion(region);
+  if (!country) return result;
   const first = new Date(from).getFullYear();
   const last = new Date(to - 1).getFullYear();
   for (let year = first; year <= last; year++) {
-    for (const [day, name] of southAfrica(year)) {
+    for (const [day, name] of countryHolidays(country, year)) {
       if (day >= startOfDay(from) && day < to) result.set(day, name);
     }
   }

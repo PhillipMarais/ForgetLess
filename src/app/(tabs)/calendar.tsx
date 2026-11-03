@@ -1,5 +1,5 @@
-import { router } from 'expo-router';
-import { useRef, useState, type ReactNode } from 'react';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import type { DayMarks } from '@/components/day-dots';
@@ -86,6 +86,22 @@ export default function CalendarScreen() {
   // Which way the period last changed, so the new one slides in from that side.
   const [direction, setDirection] = useState<-1 | 0 | 1>(0);
   const lastTap = useRef<{ day: number; at: number } | null>(null);
+
+  // A day tapped in the calendar widget (forgetless:///calendar?day=…) is selected once.
+  const { day: linkedDay } = useLocalSearchParams<{ day?: string }>();
+  const [handledLink, setHandledLink] = useState<string | undefined>(undefined);
+  if (linkedDay !== handledLink) {
+    setHandledLink(linkedDay);
+    const day = Number(linkedDay);
+    if (linkedDay && Number.isFinite(day)) {
+      setDirection(0);
+      setSelectedDay(startOfDay(day));
+    }
+  }
+  // Cleared again, so tapping the same day in the widget later selects it again.
+  useEffect(() => {
+    if (linkedDay) router.setParams({ day: undefined });
+  }, [linkedDay]);
 
   const changeView = (next: CalendarView) => {
     setView(next);

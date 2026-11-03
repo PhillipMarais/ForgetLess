@@ -1,7 +1,13 @@
+import { useState } from 'react';
+import { StyleSheet, View } from 'react-native';
+
+import { FormTextInput } from '@/components/form';
 import { SettingChoices, SettingSwitch, SettingsGroup, SettingsPage } from '@/components/settings-row';
+import { ThemedText } from '@/components/themed-text';
 import { SPEECH_LANGUAGES, speechLanguageName } from '@/constants/speech-languages';
 import type { CalendarStartView } from '@/db/settings';
-import { HOLIDAY_REGIONS } from '@/lib/holidays';
+import { Spacing } from '@/constants/theme';
+import { holidayRegionChoices, holidayRegionTitle, type HolidayRegion } from '@/lib/holidays';
 import { useSettings } from '@/hooks/use-settings';
 
 const START_VIEWS: { value: CalendarStartView; title: string; description: string }[] = [
@@ -81,10 +87,8 @@ export default function GeneralSettingsScreen() {
       <SettingsGroup
         label="Public holidays"
         collapsible
-        summary={HOLIDAY_REGIONS.find((region) => region.value === settings.holidayRegion)?.title}>
-        <SettingChoices
-          label="Public holidays"
-          options={HOLIDAY_REGIONS}
+        summary={holidayRegionTitle(settings.holidayRegion)}>
+        <HolidayRegionPicker
           value={settings.holidayRegion}
           onChange={(value) => setSetting('holidayRegion', value)}
         />
@@ -104,3 +108,43 @@ export default function GeneralSettingsScreen() {
     </SettingsPage>
   );
 }
+
+/** At most this many countries are listed for a search. */
+const MAX_MATCHES = 25;
+
+/**
+ * Automatic (the phone's region) and None, then a search over every country. Without a
+ * search only the chosen country is listed, so the page doesn't fill with 200 names.
+ */
+function HolidayRegionPicker({ value, onChange }: { value: HolidayRegion; onChange: (value: HolidayRegion) => void }) {
+  const [query, setQuery] = useState('');
+  const [all] = useState(holidayRegionChoices);
+  const search = query.trim().toLowerCase();
+  const [automatic, none, ...countries] = all;
+  const shown = search
+    ? countries.filter((country) => country.title.toLowerCase().includes(search)).slice(0, MAX_MATCHES)
+    : countries.filter((country) => country.value === value);
+  return (
+    <View style={styles.picker}>
+      <SettingChoices label="Public holidays" options={[automatic, none, ...shown]} value={value} onChange={onChange} />
+      <FormTextInput
+        value={query}
+        onChangeText={setQuery}
+        placeholder="Search for another country"
+        accessibilityLabel="Search for a country"
+        autoCorrect={false}
+      />
+      {search && shown.length === 0 ? (
+        <ThemedText type="small" themeColor="textSecondary">
+          No country matches “{query.trim()}”.
+        </ThemedText>
+      ) : null}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  picker: {
+    gap: Spacing.two,
+  },
+});

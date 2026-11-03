@@ -226,6 +226,25 @@ export async function setNotesCategory(
   notifyChange('notes');
 }
 
+/**
+ * Turns voice notes into ordinary notes (or back): they move from "Voice notes" to the main
+ * notes list. Their text, category and pin stay as they are.
+ */
+export async function setNotesVoice(db: SQLiteDatabase, ids: readonly string[], voice: boolean) {
+  const timestamp = now();
+  await db.withTransactionAsync(async () => {
+    for (const id of ids) {
+      await db.runAsync(
+        'UPDATE notes SET kind = ?, updated_at = ? WHERE id = ?',
+        voice ? 'voice' : null,
+        timestamp,
+        id,
+      );
+    }
+  });
+  notifyChange('notes');
+}
+
 /** Deletes several notes and their pictures at once (multi-select). */
 export async function deleteNotes(db: SQLiteDatabase, ids: readonly string[]) {
   for (const id of ids) await deleteNote(db, id);

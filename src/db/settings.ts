@@ -2,7 +2,7 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 
 import { FONT_SET_IDS, type FontSetId } from '@/constants/fonts';
 import { SPEECH_LANGUAGE_VALUES, type SpeechLanguage } from '@/constants/speech-languages';
-import { HOLIDAY_REGION_VALUES, type HolidayRegion } from '@/lib/holidays';
+import { isHolidayRegion, type HolidayRegion } from '@/lib/holidays';
 import { CONTROL_SIZES, TEXT_SIZES, type ControlSize, type TextSize } from '@/constants/theme';
 import { DEFAULT_CUSTOM_COLORS, sanitizeCustomColors, type CustomColors } from '@/lib/custom-theme';
 
@@ -19,8 +19,8 @@ export const DEFAULT_SETTINGS = {
   blockRepeatsUntilDone: true,
   /** The calendar view last used; the calendar opens on it when calendarStartView is 'recent'. */
   calendarView: 'month' as CalendarView,
-  /** Whose public holidays the calendar shows. */
-  holidayRegion: 'ZA' as HolidayRegion,
+  /** Whose public holidays the calendar shows: 'auto' (the phone's region), 'none' or a country code. */
+  holidayRegion: 'auto' as HolidayRegion,
   /** Which view the calendar opens on. */
   calendarStartView: 'recent' as CalendarStartView,
   /** New tasks start with a date (today)… */
@@ -66,7 +66,7 @@ function normalize(key: SettingKey, value: unknown): unknown {
   }
   if (key === 'calendarView') return CALENDAR_VIEWS.includes(value as string) ? value : undefined;
   if (key === 'calendarStartView') return CALENDAR_START_VIEWS.includes(value as string) ? value : undefined;
-  if (key === 'holidayRegion') return HOLIDAY_REGION_VALUES.includes(value as string) ? value : undefined;
+  if (key === 'holidayRegion') return isHolidayRegion(value) ? value : undefined;
   if (key === 'speechLanguage') return SPEECH_LANGUAGE_VALUES.includes(value as string) ? value : undefined;
   if (key === 'textSize') return (value as string) in TEXT_SIZES ? value : undefined;
   if (key === 'controlSize') return (value as string) in CONTROL_SIZES ? value : undefined;

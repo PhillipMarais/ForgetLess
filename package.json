@@ -14,6 +14,7 @@
     "@expo-google-fonts/space-mono": "^0.4.2",
     "@expo/ui": "~58.0.26",
     "@react-native-community/datetimepicker": "9.2.1",
+    "date-holidays": "^3.38.0",
     "expo": "~58.0.22",
     "expo-constants": "~58.0.14",
     "expo-crypto": "~58.0.7",

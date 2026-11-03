@@ -9,6 +9,7 @@ import {
   listNotes,
   setNotePinned,
   setNotesPinned,
+  setNotesVoice,
   updateNote,
 } from './notes';
 import { createMigratedTestDatabase } from './testing/test-database';
@@ -93,4 +94,15 @@ it('lists voice notes in their own section, unless pinned', async () => {
   main = await listMainNotes(db);
   expect(main.voice).toEqual([]);
   expect(main.pinned.map((note) => note.title)).toEqual(['Spoken']);
+});
+
+it('turns a voice note into an ordinary note in the main list', async () => {
+  const id = await createNote(db, { title: 'Spoken', body: 'Buy milk', voice: true });
+  expect((await listMainNotes(db)).voice.map((note) => note.id)).toEqual([id]);
+
+  await setNotesVoice(db, [id], false);
+  const main = await listMainNotes(db);
+  expect(main.voice).toEqual([]);
+  expect(main.loose.map((note) => note.id)).toEqual([id]);
+  expect(await getNote(db, id)).toMatchObject({ title: 'Spoken', body: 'Buy milk', voice: false });
 });

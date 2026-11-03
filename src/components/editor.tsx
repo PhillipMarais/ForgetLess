@@ -20,7 +20,9 @@ export function EditorLayout({ children }: PropsWithChildren) {
         bottomOffset={KEYBOARD_GAP}
         contentContainerStyle={[styles.content, { paddingBottom: Spacing.four + insets.bottom }]}
         keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="interactive">
+        // Scrolling must not close the keyboard: on Android the page then jumped back down
+        // under the finger, so tapping the note text just after scrolling missed it.
+        keyboardDismissMode="none">
         {children}
       </KeyboardAwareScrollView>
     </ThemedView>

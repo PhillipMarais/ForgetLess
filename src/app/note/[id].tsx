@@ -12,20 +12,21 @@ import { DictationButton } from '@/components/dictation-button';
 import { HeaderTextButton, KEYBOARD_GAP, leaveEditor, useClosingHeader } from '@/components/editor';
 import { DocumentList } from '@/components/document-list';
 import { EmptyState } from '@/components/empty-state';
-import { Icons } from '@/components/icon';
+import { Icon, Icons } from '@/components/icon';
 import { IconButton } from '@/components/icon-button';
 import { PhotoStrip } from '@/components/photo-strip';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { fontStyle, MaxContentWidth, Spacing } from '@/constants/theme';
+import { fontStyle, MaxContentWidth, Radius, Spacing } from '@/constants/theme';
 import { listAttachments, type Attachment } from '@/db/attachments';
 import { listCategories } from '@/db/categories';
-import { createNote, deleteNote, getNote, updateNote, type Note } from '@/db/notes';
+import { createNote, deleteNote, getNote, setNotesVoice, updateNote, type Note } from '@/db/notes';
 import { useLiveQuery } from '@/db/use-live-query';
 import { useDraftDocuments } from '@/hooks/use-draft-documents';
 import { appendSentence, useDictation } from '@/hooks/use-dictation';
 import { useDraftPhotos } from '@/hooks/use-draft-photos';
 import { useAppTheme, useFontSize } from '@/hooks/use-theme';
+import { shareNotes } from '@/lib/share-notes';
 
 type Loaded = { note: Note | null; attachments: Attachment[]; documents: Attachment[] };
 
@@ -89,6 +90,8 @@ function NoteEditor({
   const dictation = useDictation((sentence) => setBody((current) => appendSentence(current, sentence)));
 
   const [pinned, setPinned] = useState(note?.pinned ?? false);
+  // Voice notes sit under "Voice notes"; turning this off makes it an ordinary note.
+  const [voice, setVoice] = useState(note?.voice ?? false);
   const initialCategory = note ? note.categoryId : newNoteCategory;
   const [categoryId, setCategoryId] = useState(initialCategory);
   const { data: categories = [] } = useLiveQuery(['note_categories'], 'categories', listCategories);
@@ -109,6 +112,7 @@ function NoteEditor({
     title !== (note?.title ?? '') ||
     body !== (note?.body ?? '') ||
     pinned !== (note?.pinned ?? false) ||
+    voice !== (note?.voice ?? false) ||
     categoryId !== initialCategory ||
     photos.changed ||
     files.changed;
@@ -135,6 +139,13 @@ function NoteEditor({
     headerRight: () => (
       <View style={styles.headerActions}>
         <IconButton
+          icon={Icons.share}
+          label="Share note"
+          color="textSecondary"
+          disabled={!title.trim() && !body.trim()}
+          onPress={() => shareNotes([{ title, body }])}
+        />
+        <IconButton
           icon={Icons.pin}
           label={pinned ? 'Unpin note' : 'Pin note'}
           color={pinned ? 'accentText' : 'textSecondary'}
@@ -153,6 +164,7 @@ function NoteEditor({
     const input = { title, body, pinned, categoryId };
     const noteId = note ? note.id : await createNote(db, input);
     if (note) await updateNote(db, note.id, input);
+    if (note && voice !== note.voice) await setNotesVoice(db, [note.id], voice);
     await photos.save(db, 'note', noteId);
     await files.save(db, 'note', noteId);
     setLeaving(true);
@@ -178,7 +190,9 @@ function NoteEditor({
         bottomOffset={KEYBOARD_GAP}
         contentContainerStyle={[styles.content, { paddingBottom: Spacing.four + insets.bottom }]}
         keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="interactive">
+        // Scrolling must not close the keyboard: on Android the page then jumped back down
+        // under the finger, so tapping the note text just after scrolling missed it.
+        keyboardDismissMode="none">
         {dirty ? (
           <View style={styles.unsaved} accessibilityLiveRegion="polite">
             <View style={[styles.unsavedDot, { backgroundColor: colors.accent }]} />
@@ -206,6 +220,23 @@ function NoteEditor({
             value={categoryId}
             onChange={setCategoryId}
           />
+        ) : null}
+        {voice ? (
+          <View style={[styles.voiceRow, { backgroundColor: colors.backgroundElement }]}>
+            <Icon name={Icons.mic} size={20} color="textSecondary" />
+            <ThemedText type="small" themeColor="textSecondary" style={styles.voiceText}>
+              Voice note
+            </ThemedText>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => setVoice(false)}
+              hitSlop={Spacing.two}
+              style={({ pressed }) => pressed && styles.pressed}>
+              <ThemedText type="smallBold" themeColor="accentText">
+                Make it a normal note
+              </ThemedText>
+            </Pressable>
+          </View>
         ) : null}
         <PhotoStrip draft={photos} />
         <DocumentList draft={files} />
@@ -304,6 +335,17 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 24,
     minHeight: 160,
+  },
+  voiceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+    borderRadius: Radius.medium,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+  },
+  voiceText: {
+    flex: 1,
   },
   delete: {
     alignItems: 'center',

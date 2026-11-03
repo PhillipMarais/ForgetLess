@@ -70,4 +70,6 @@ export const Icons = {
   timeline: { ios: 'clock', material: 'view_timeline' },
   holiday: { ios: 'flag', material: 'celebration' },
   clear: { ios: 'xmark.circle', material: 'backspace' },
+  share: { ios: 'square.and.arrow.up', material: 'share' },
+  toNote: { ios: 'doc.text', material: 'note_add' },
 } as const satisfies Record<string, IconName>;

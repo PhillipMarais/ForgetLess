@@ -1,4 +1,4 @@
-import { easterSunday, holidaysBetween } from './holidays';
+import { easterSunday, holidayRegionChoices, holidaysBetween, isHolidayRegion } from './holidays';
 
 const day = (y: number, m: number, d: number) => new Date(y, m - 1, d).getTime();
 const year = (y: number) => holidaysBetween('ZA', day(y, 1, 1), day(y + 1, 1, 1));
@@ -37,5 +37,29 @@ describe('South African public holidays', () => {
 
   it('shows nothing when switched off', () => {
     expect(holidaysBetween('none', day(2026, 1, 1), day(2027, 1, 1)).size).toBe(0);
+  });
+});
+
+describe('other countries', () => {
+  it('knows other countries’ public holidays, on their own dates', () => {
+    const holidays = holidaysBetween('NL', day(2026, 1, 1), day(2027, 1, 1));
+    expect(holidays.get(day(2026, 4, 27))).toBe("King's Day");
+    expect(holidays.get(day(2026, 12, 25))).toBe('Christmas Day');
+    // Only public holidays, not observances like Mother's Day.
+    expect([...holidays.values()]).not.toContain("Mother's Day");
+  });
+
+  it('offers Automatic, None and the countries by name', () => {
+    const choices = holidayRegionChoices();
+    expect(choices.slice(0, 2).map((choice) => choice.value)).toEqual(['auto', 'none']);
+    expect(choices.some((choice) => choice.value === 'ZA' && choice.title === 'South Africa')).toBe(true);
+    expect(choices.length).toBeGreaterThan(150);
+  });
+
+  it('accepts only known regions as a setting', () => {
+    expect(isHolidayRegion('auto')).toBe(true);
+    expect(isHolidayRegion('US')).toBe(true);
+    expect(isHolidayRegion('XX')).toBe(false);
+    expect(isHolidayRegion(3)).toBe(false);
   });
 });

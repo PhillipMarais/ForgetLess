@@ -21,6 +21,8 @@ import { logoSvg, WidgetFonts, WidgetIcons, type WidgetColors } from './widget-t
 export const AppLinks = {
   today: 'forgetless:///',
   calendar: 'forgetless:///calendar',
+  calendarDay: (day: number) => `forgetless:///calendar?day=${day}`,
+  newEvent: 'forgetless:///event/new',
   tasks: 'forgetless:///tasks',
   notes: 'forgetless:///notes',
   // Quick-add popups over the home screen (QuickAddActivity in modules/forgetless-device).
@@ -300,22 +302,23 @@ export function NotesWidget({ colors, notes }: { colors: WidgetColors; notes: No
                 width: 'match_parent',
                 flexDirection: 'column',
                 backgroundColor: colors.surface,
-                borderRadius: 12,
-                padding: 10,
-                marginBottom: 6,
+                borderRadius: 14,
+                paddingHorizontal: 14,
+                paddingVertical: 12,
+                marginBottom: 10,
               }}>
               <TextWidget
                 text={note.title.trim() || 'Untitled'}
                 maxLines={1}
                 truncate="END"
-                style={{ fontSize: 14, fontFamily: WidgetFonts.bodyBold, color: colors.text }}
+                style={{ fontSize: 15, fontFamily: WidgetFonts.bodyBold, color: colors.text }}
               />
               {note.body.trim() ? (
                 <TextWidget
                   text={note.body.trim().split('\n')[0]}
                   maxLines={1}
                   truncate="END"
-                  style={{ fontSize: 12, fontFamily: WidgetFonts.body, color: colors.textSecondary }}
+                  style={{ fontSize: 13, fontFamily: WidgetFonts.body, color: colors.textSecondary, marginTop: 4 }}
                 />
               ) : null}
             </FlexWidget>
@@ -328,15 +331,29 @@ export function NotesWidget({ colors, notes }: { colors: WidgetColors; notes: No
 
 // --- Calendar ------------------------------------------------------------------------------
 
+/** One line in a day of the calendar widget. */
+export type CalendarItem = { title: string; kind: 'holiday' | 'event' | 'task'; done?: boolean };
+
 export type CalendarData = {
   month: number;
-  /** 42 day starts, Monday first. */
-  days: number[];
-  eventDays: Set<number>;
-  taskDays: Set<number>;
-  holidays: Map<number, string>;
+  /** Months from this one: what the arrows have paged to. */
+  offset: number;
+  /** The weeks shown (Monday first): 4 to 6 rows of 7 day starts. */
+  weeks: number[][];
+  /** Each day's holidays, events and tasks, in that order. */
+  items: Map<number, CalendarItem[]>;
 };
 
+/** The data the month arrows send back (see task-handler). */
+export type CalendarMonthData = { offset: number };
+
+const ITEM_LINE = 15;
+const DAY_NUMBER = 20;
+
+/**
+ * Like a wall calendar: each day lists what's on it (holidays, events, then tasks), as much
+ * as fits. Arrows page through months; tapping a day opens it in the app.
+ */
 export function CalendarWidget({
   colors,
   data,
@@ -350,43 +367,100 @@ export function CalendarWidget({
 }) {
   const today = startOfDay();
   const month = new Date(data.month);
-  // Inside the frame's padding; header ~42dp, weekday row ~18dp.
-  const cell = Math.max(20, Math.floor(Math.min((width - 26) / 7, (height - 26 - 42 - 18) / 6)));
-  const circle = Math.min(cell - 4, 30);
-  const weeks = Array.from({ length: 6 }, (_, week) => data.days.slice(week * 7, week * 7 + 7));
+  // Inside the frame's padding (12 + 1 border each side); header ~42dp, weekday row 18dp.
+  const rowHeight = Math.max(22, Math.floor((height - 26 - 42 - 18) / data.weeks.length));
+  // Fixed widths: with flex, long names pushed the columns out of line.
+  const cellWidth = Math.floor((width - 26) / 7);
+  const lines = Math.max(0, Math.floor((rowHeight - DAY_NUMBER - 2) / ITEM_LINE));
+  const fontSize = cellWidth < 44 ? 9 : 10;
+
+  const toMonth = (offset: number) => ({
+    clickAction: 'CALENDAR_MONTH',
+    clickActionData: { offset } satisfies CalendarMonthData,
+  });
 
   return (
     <Frame colors={colors} link={AppLinks.calendar}>
-      <Header
-        colors={colors}
-        accentTitle={month.toLocaleDateString(undefined, { month: 'long' })}
-        title={String(month.getFullYear())}
-      />
-      <FlexWidget style={{ width: 'match_parent', flexDirection: 'row' }}>
+      <FlexWidget style={{ width: 'match_parent', flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+        <SvgWidget svg={logoSvg(colors)} style={{ width: 31, height: 15, marginRight: 8 }} />
+        {/* Paged away, the month's name leads back to this month. */}
+        <FlexWidget
+          {...(data.offset !== 0 ? toMonth(0) : open(AppLinks.calendar))}
+          accessibilityLabel={data.offset !== 0 ? 'Back to this month' : 'Open the calendar'}
+          style={{ flex: 1, flexDirection: 'row', alignItems: 'center', height: 34 }}>
+          <TextWidget
+            text={`${month.toLocaleDateString(undefined, { month: 'long' })} `}
+            maxLines={1}
+            style={{ fontSize: 17, fontFamily: WidgetFonts.display, color: colors.accentText }}
+          />
+          <TextWidget
+            text={String(month.getFullYear())}
+            maxLines={1}
+            style={{ fontSize: 17, fontFamily: WidgetFonts.display, color: colors.text }}
+          />
+        </FlexWidget>
+        <RoundButton
+          colors={colors}
+          label="Previous month"
+          action={toMonth(data.offset - 1)}
+          svg={WidgetIcons.previous(colors.text)}
+        />
+        <RoundButton
+          colors={colors}
+          label="Next month"
+          action={toMonth(data.offset + 1)}
+          svg={WidgetIcons.next(colors.text)}
+        />
+        <RoundButton
+          colors={colors}
+          label="New event"
+          action={open(AppLinks.newEvent)}
+          svg={WidgetIcons.add(colors.onAccent)}
+          filled
+        />
+      </FlexWidget>
+      <FlexWidget style={{ width: 'match_parent', flexDirection: 'row', height: 18 }}>
         {weekdayLabels().map((label) => (
-          <FlexWidget key={label} style={{ flex: 1, alignItems: 'center' }}>
-            <TextWidget text={label.slice(0, 2)} style={{ fontSize: 11, fontFamily: WidgetFonts.body, color: colors.textSecondary }} />
+          <FlexWidget key={label} style={{ width: cellWidth, alignItems: 'center' }}>
+            <TextWidget
+              text={label.slice(0, 2)}
+              style={{ fontSize: 11, fontFamily: WidgetFonts.body, color: colors.textSecondary }}
+            />
           </FlexWidget>
         ))}
       </FlexWidget>
-      {weeks.map((week) => (
-        <FlexWidget key={week[0]} style={{ width: 'match_parent', flexDirection: 'row', height: cell }}>
+      {data.weeks.map((week) => (
+        <FlexWidget
+          key={week[0]}
+          style={{
+            width: 'match_parent',
+            height: rowHeight,
+            flexDirection: 'row',
+            borderTopWidth: 1,
+            borderColor: colors.border,
+          }}>
           {week.map((day) => {
             const date = new Date(day);
             const isToday = day === today;
             const inMonth = date.getMonth() === month.getMonth();
-            const dots: HexColor[] = [];
-            if (data.eventDays.has(day)) dots.push(colors.accent);
-            if (data.taskDays.has(day)) dots.push(colors.text);
+            const items = data.items.get(day) ?? [];
+            const holiday = items.some((item) => item.kind === 'holiday');
+            const shown = items.slice(0, lines);
+            // What doesn't fit is counted next to the date ("3 +2").
+            const hidden = items.length - shown.length;
             return (
               <FlexWidget
                 key={day}
-                style={{ flex: 1, height: cell, flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                {...open(AppLinks.calendarDay(day))}
+                accessibilityLabel={date.toDateString()}
+                style={{ width: cellWidth, height: rowHeight, flexDirection: 'column', paddingTop: 2, paddingHorizontal: 1 }}>
+                <FlexWidget
+                  style={{ width: 'match_parent', flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
                 <FlexWidget
                   style={{
-                    width: circle,
-                    height: circle,
-                    borderRadius: circle / 2,
+                    height: 18,
+                    borderRadius: 6,
+                    paddingHorizontal: 4,
                     alignItems: 'center',
                     justifyContent: 'center',
                     backgroundColor: isToday ? colors.accent : '#00000000',
@@ -394,32 +468,101 @@ export function CalendarWidget({
                   <TextWidget
                     text={String(date.getDate())}
                     style={{
-                      fontSize: Math.min(14, Math.round(circle * 0.45)),
+                      fontSize: 12,
                       fontFamily: isToday ? WidgetFonts.bodyBold : WidgetFonts.body,
                       color: isToday
                         ? colors.onAccent
-                        : data.holidays.has(day)
-                          ? colors.danger
-                          : inMonth
-                            ? colors.text
-                            : colors.textSecondary,
+                        : !inMonth
+                          ? colors.textSecondary
+                          : holiday
+                            ? colors.danger
+                            : colors.text,
                     }}
                   />
                 </FlexWidget>
-                <FlexWidget style={{ flexDirection: 'row', height: 4 }}>
-                  {dots.map((color, index) => (
-                    <FlexWidget
-                      key={color + index}
-                      style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: color, marginHorizontal: 1 }}
-                    />
-                  ))}
+                {hidden > 0 ? (
+                  <TextWidget
+                    text={`+${hidden}`}
+                    style={{ fontSize, fontFamily: WidgetFonts.bodyBold, color: colors.textSecondary, marginLeft: 1 }}
+                  />
+                ) : null}
                 </FlexWidget>
+                {shown.map((item, index) => (
+                  <DayItem key={index} colors={colors} item={item} fontSize={fontSize} faded={!inMonth} />
+                ))}
               </FlexWidget>
             );
           })}
         </FlexWidget>
       ))}
     </Frame>
+  );
+}
+
+function RoundButton({
+  colors,
+  label,
+  action,
+  svg,
+  filled,
+}: {
+  colors: WidgetColors;
+  label: string;
+  action: object;
+  svg: string;
+  filled?: boolean;
+}) {
+  return (
+    <FlexWidget
+      {...action}
+      accessibilityLabel={label}
+      style={{
+        width: 34,
+        height: 34,
+        borderRadius: 17,
+        marginLeft: 6,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: filled ? colors.accent : colors.surface,
+      }}>
+      <SvgWidget svg={svg} style={{ width: 20, height: 20 }} />
+    </FlexWidget>
+  );
+}
+
+/** A day's line: a tinted label for holidays and events, plain text for tasks. */
+function DayItem({
+  colors,
+  item,
+  fontSize,
+  faded,
+}: {
+  colors: WidgetColors;
+  item: CalendarItem;
+  fontSize: number;
+  faded: boolean;
+}) {
+  const tint = item.kind === 'holiday' ? colors.danger : item.kind === 'event' ? colors.accent : null;
+  const textColor =
+    faded || item.done ? colors.textSecondary : item.kind === 'holiday' ? colors.danger : colors.text;
+  return (
+    <FlexWidget
+      style={{
+        width: 'match_parent',
+        height: ITEM_LINE - 1,
+        marginTop: 1,
+        paddingHorizontal: 2,
+        borderRadius: 3,
+        justifyContent: 'center',
+        // The colour at 20% strength behind the text.
+        backgroundColor: tint ? (`${tint.slice(0, 7)}33` as HexColor) : '#00000000',
+      }}>
+      <TextWidget
+        text={item.kind === 'task' ? `${item.done ? '✓' : '•'} ${item.title}` : item.title}
+        maxLines={1}
+        style={{ fontSize, fontFamily: WidgetFonts.body, color: textColor }}
+      />
+    </FlexWidget>
   );
 }
 

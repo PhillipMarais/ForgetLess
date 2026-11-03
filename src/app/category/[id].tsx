@@ -52,7 +52,11 @@ export default function CategoryScreen() {
           </View>
         </View>
         {selection.selecting ? (
-          <SelectionBar selection={selection} notes={notes} categories={categories} />
+          <SelectionBar selection={selection} notes={notes} categories={categories} currentCategoryId={category.id} />
+        ) : notes.length > 0 ? (
+          <ThemedText type="small" themeColor="textSecondary">
+            Hold a note to select it, then Move it out of this category or into another.
+          </ThemedText>
         ) : null}
         {notes.length === 0 ? (
           <EmptyState

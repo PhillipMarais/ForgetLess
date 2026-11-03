@@ -77,6 +77,10 @@ export const WidgetIcons = {
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="${color}" stroke-width="2"/></svg>`,
   checked: (fill: string, tick: string) =>
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="${fill}"/><path fill="${tick}" d="M10 15.6 6.9 12.5l-1.2 1.2 4.3 4.3 8.5-8.5-1.2-1.2z"/></svg>`,
+  previous: (color: string) =>
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="${color}" d="M15.4 7.4 14 6l-6 6 6 6 1.4-1.4L10.8 12z"/></svg>`,
+  next: (color: string) =>
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="${color}" d="M8.6 16.6 10 18l6-6-6-6-1.4 1.4 4.6 4.6z"/></svg>`,
   steps: (color: string) =>
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="${color}" stroke-width="2" stroke-dasharray="4 3"/></svg>`,
 };
