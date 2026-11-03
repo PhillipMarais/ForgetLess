@@ -1,22 +1,21 @@
 import { router } from 'expo-router';
 import type { ReactNode } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { CardGrid } from '@/components/card-grid';
 import { CategoryCard, CategorySelectionBar } from '@/components/category-card';
 import { EmptyState } from '@/components/empty-state';
-import { Icon, Icons } from '@/components/icon';
+import { Icons } from '@/components/icon';
 import { IconButton } from '@/components/icon-button';
 import { NoteCard } from '@/components/note-card';
 import { SelectionBar, useNoteSelection } from '@/components/note-selection';
 import { Screen } from '@/components/screen';
 import { ThemedText } from '@/components/themed-text';
-import { Radius, Spacing } from '@/constants/theme';
+import { Spacing } from '@/constants/theme';
 import { listCategories } from '@/db/categories';
 import { listMainNotes, type Note } from '@/db/notes';
 import { useLiveQuery } from '@/db/use-live-query';
 import { useLayout } from '@/hooks/use-layout';
-import { useTheme } from '@/hooks/use-theme';
 
 /**
  * Pinned notes first (from any category), then categories, then the notes not in a category.
@@ -64,7 +63,11 @@ export default function NotesScreen() {
       fullWidth
       action={
         <View style={styles.actions}>
-          <NewCategoryButton />
+          <IconButton
+            icon={Icons.newCategory}
+            label="New category"
+            onPress={() => router.push({ pathname: '/category-editor/[id]', params: { id: 'new' } })}
+          />
           <IconButton icon={Icons.mic} label="New voice note" onPress={() => router.push('/voice-note')} />
           <IconButton
             icon={Icons.add}
@@ -89,7 +92,7 @@ export default function NotesScreen() {
           <EmptyState
             icon={Icons.notes}
             title="No notes yet"
-            message="Tap + to write a note, or New category to group your notes."
+            message="Tap + to write a note, or the folder button to make a category for grouping notes."
           />
         ) : null}
 
@@ -125,26 +128,6 @@ export default function NotesScreen() {
   );
 }
 
-/** A clear, labelled button: categories are easy to miss as an icon. */
-function NewCategoryButton() {
-  const theme = useTheme();
-  return (
-    <Pressable
-      accessibilityRole="button"
-      onPress={() => router.push({ pathname: '/category-editor/[id]', params: { id: 'new' } })}
-      style={({ pressed }) => [
-        styles.newCategory,
-        { borderColor: theme.accentText },
-        pressed && styles.pressed,
-      ]}>
-      <Icon name={Icons.newCategory} size={20} color="accentText" />
-      <ThemedText type="smallBold" themeColor="accentText">
-        New category
-      </ThemedText>
-    </Pressable>
-  );
-}
-
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <View style={styles.section}>
@@ -159,18 +142,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.two,
-  },
-  newCategory: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.one,
-    minHeight: 44,
-    borderWidth: 1.5,
-    borderRadius: Radius.pill,
-    paddingHorizontal: Spacing.three,
-  },
-  pressed: {
-    opacity: 0.7,
   },
   content: {
     paddingHorizontal: Spacing.three,
