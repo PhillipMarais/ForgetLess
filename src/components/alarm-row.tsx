@@ -86,7 +86,7 @@ export function AlarmRow({ alarm, now }: { alarm: PlannedAlarm; now: number }) {
           <View style={styles.meta}>
             <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
               {rang ? 'Rang · ' : ''}
-              {alarm.body}
+              {alarm.detail}
             </ThemedText>
             {alarm.repeating ? <Icon name={Icons.repeat} size={14} color="textSecondary" /> : null}
           </View>

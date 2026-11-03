@@ -15,7 +15,10 @@ export type PlannedAlarm = {
   id: string;
   at: number;
   title: string;
+  /** The notification's text, worded for when it rings ("Due now · 17:00"). */
   body: string;
+  /** The same for a list of alarms still to come ("Due 17:00", "15 min before · due 17:00"). */
+  detail: string;
   ownerType: ReminderOwner;
   ownerId: string;
   /** The item repeats, so it has other alarms too. */
@@ -31,10 +34,13 @@ export const ALARM_HORIZON_MS = 21 * 24 * 60 * 60 * 1000;
 export const MAX_ALARMS = 200;
 const MAX_PER_ITEM = 31;
 
+function span(offsetMinutes: number) {
+  return offsetMinutes >= 60 ? `${offsetMinutes / 60} h` : `${offsetMinutes} min`;
+}
+
 function lead(offsetMinutes: number, time: number) {
   if (offsetMinutes === 0) return formatTime(time);
-  const before = offsetMinutes >= 60 ? `${offsetMinutes / 60} h` : `${offsetMinutes} min`;
-  return `In ${before} · ${formatTime(time)}`;
+  return `In ${span(offsetMinutes)} · ${formatTime(time)}`;
 }
 
 /** Alarms for timed tasks (each upcoming date of a repeating one) after `now`. */
@@ -52,6 +58,10 @@ export function taskAlarms(task: Task, offsetMinutes: number, now: number): Plan
       at: time - offset,
       title: task.title,
       body: offsetMinutes === 0 ? `Due now · ${formatTime(time)}` : lead(offsetMinutes, time),
+      detail:
+        offsetMinutes === 0
+          ? `Due ${formatTime(time)}`
+          : `${span(offsetMinutes)} before · due ${formatTime(time)}`,
       ownerType: 'task' as const,
       ownerId: task.id,
       repeating: task.rrule !== null,
@@ -76,6 +86,10 @@ export function eventAlarms(
         offsetMinutes === 0
           ? `${formatTime(occurrence.startAt)} – ${formatTime(occurrence.endAt)}`
           : lead(offsetMinutes, occurrence.startAt),
+      detail:
+        offsetMinutes === 0
+          ? `${formatTime(occurrence.startAt)} – ${formatTime(occurrence.endAt)}`
+          : `${span(offsetMinutes)} before · starts ${formatTime(occurrence.startAt)}`,
       ownerType: 'event' as const,
       ownerId: occurrence.eventId,
       repeating: occurrence.rrule !== null,

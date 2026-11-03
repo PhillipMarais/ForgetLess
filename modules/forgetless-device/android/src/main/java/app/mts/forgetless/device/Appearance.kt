@@ -43,7 +43,10 @@ data class Appearance(
     }
 
     fun load(context: Context): Appearance {
-      val raw = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY, null) ?: return DEFAULT
+      // The quick-add popup runs in its own process, so re-read the file rather than trust a
+      // copy cached before the theme last changed.
+      @Suppress("DEPRECATION")
+      val raw = context.getSharedPreferences(PREFS, Context.MODE_MULTI_PROCESS).getString(KEY, null) ?: return DEFAULT
       return try {
         val json = JSONObject(raw)
         fun color(key: String, fallback: Int) =

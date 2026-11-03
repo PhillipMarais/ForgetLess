@@ -103,9 +103,15 @@ function TimePickerSheet({ title, value, onDone, onCancel }: SheetProps) {
     set(Math.floor(total / 60), total % 60);
   };
 
-  const now = new Date();
   const quick = [
-    { label: 'Now', run: () => set(now.getHours(), now.getMinutes()) },
+    {
+      label: 'Now',
+      // Read the clock on tap: a time taken while drawing can be minutes old by then.
+      run: () => {
+        const now = new Date();
+        set(now.getHours(), now.getMinutes());
+      },
+    },
     { label: formatTime(new Date(2026, 0, 1, 9).getTime()), run: () => set(9, 0) },
     { label: formatTime(new Date(2026, 0, 1, 12).getTime()), run: () => set(12, 0) },
     { label: formatTime(new Date(2026, 0, 1, 17).getTime()), run: () => set(17, 0) },

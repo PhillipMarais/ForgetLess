@@ -50,6 +50,7 @@ describe('planning alarms', () => {
         at: at(2026, 11, 2, 20),
         title: 'Pills',
         body: expect.stringContaining('Due now'),
+        detail: expect.stringMatching(/^Due \d/),
         ownerType: 'task',
         ownerId: id,
         repeating: false,

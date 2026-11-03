@@ -86,6 +86,10 @@ const styles = StyleSheet.create({
     left: Spacing.three,
     right: Spacing.three,
     alignItems: 'center',
+    // On Android the open screen sits raised above its siblings, so without this it took the
+    // taps meant for the toast (Undo typed into the note instead).
+    zIndex: 1000,
+    elevation: 1000,
   },
   toast: {
     flexDirection: 'row',

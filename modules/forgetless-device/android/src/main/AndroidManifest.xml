@@ -35,6 +35,7 @@
       android:noHistory="true"
       android:launchMode="singleTask"
       android:taskAffinity="app.mts.forgetless.quickadd"
+      android:process=":quickadd"
       android:windowSoftInputMode="adjustResize"
       android:theme="@android:style/Theme.Translucent.NoTitleBar">
       <intent-filter>

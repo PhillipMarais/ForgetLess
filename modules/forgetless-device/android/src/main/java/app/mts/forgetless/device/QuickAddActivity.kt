@@ -52,6 +52,10 @@ import java.util.UUID
  * A small popup over the home screen for adding a task, a note or a voice note straight from a
  * widget, without opening the app. Opened by forgetless-quick://task, ://note or ://voice.
  * It writes to the app's database itself, then asks the widgets to redraw.
+ *
+ * It runs in its own process (see AndroidManifest.xml): it uses Android's SQLite while the app
+ * uses expo-sqlite's own copy, and two copies of SQLite in one process break each other's file
+ * locks (changes went unseen by the app and widgets, and could be lost).
  */
 class QuickAddActivity : Activity() {
   private enum class Mode { TASK, NOTE, VOICE }
@@ -328,7 +332,7 @@ class QuickAddActivity : Activity() {
   private fun databaseReady(): Boolean {
     if (!databaseFile.exists()) return false
     return try {
-      SQLiteDatabase.openDatabase(databaseFile.path, null, SQLiteDatabase.OPEN_READONLY).use { db ->
+      SQLiteDatabase.openDatabase(databaseFile.path, null, SQLiteDatabase.OPEN_READONLY or SQLiteDatabase.ENABLE_WRITE_AHEAD_LOGGING).use { db ->
         // Version 6 added voice notes; older databases are upgraded by the app.
         db.version >= 6
       }
@@ -342,7 +346,7 @@ class QuickAddActivity : Activity() {
     if (listening) stopListening()
     val now = System.currentTimeMillis()
     try {
-      SQLiteDatabase.openDatabase(databaseFile.path, null, SQLiteDatabase.OPEN_READWRITE).use { db ->
+      SQLiteDatabase.openDatabase(databaseFile.path, null, SQLiteDatabase.OPEN_READWRITE or SQLiteDatabase.ENABLE_WRITE_AHEAD_LOGGING).use { db ->
         if (mode == Mode.TASK) {
           val due = dueDays?.let { days ->
             Calendar.getInstance().apply {
@@ -415,7 +419,7 @@ class QuickAddActivity : Activity() {
 
   /** A setting's stored JSON value (string, boolean or number), or null. */
   private fun readSetting(key: String): Any? = try {
-    SQLiteDatabase.openDatabase(databaseFile.path, null, SQLiteDatabase.OPEN_READONLY).use { db ->
+    SQLiteDatabase.openDatabase(databaseFile.path, null, SQLiteDatabase.OPEN_READONLY or SQLiteDatabase.ENABLE_WRITE_AHEAD_LOGGING).use { db ->
       db.rawQuery("SELECT value FROM settings WHERE key = ?", arrayOf(key)).use { cursor ->
         if (cursor.moveToFirst()) JSONArray("[${cursor.getString(0)}]").get(0) else null
       }
@@ -425,7 +429,7 @@ class QuickAddActivity : Activity() {
   }
 
   private fun readCategories(): List<Pair<String, String>> = try {
-    SQLiteDatabase.openDatabase(databaseFile.path, null, SQLiteDatabase.OPEN_READONLY).use { db ->
+    SQLiteDatabase.openDatabase(databaseFile.path, null, SQLiteDatabase.OPEN_READONLY or SQLiteDatabase.ENABLE_WRITE_AHEAD_LOGGING).use { db ->
       db.rawQuery("SELECT id, name FROM note_categories WHERE deleted_at IS NULL ORDER BY sort_order, name", null).use { cursor ->
         buildList { while (cursor.moveToNext()) add(cursor.getString(0) to cursor.getString(1)) }
       }
