@@ -1,5 +1,5 @@
-// Draws the app icon, Android adaptive icon layers, splash image and favicon from the logo
-// in src/constants/logo.ts, using headless Chrome. Run: node scripts/generate-brand-assets.mjs
+// Draws the app icon, Android adaptive icon layers, splash image and favicon from
+// assets/brand/app-icon.svg, using headless Chrome. Run: node scripts/generate-brand-assets.mjs
 // (set CHROME_PATH if Chrome isn't in the default Windows location).
 import { spawn } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -7,44 +7,35 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 const root = new URL('..', import.meta.url).pathname.replace(/^\/(\w:)/, '$1');
-const logoSource = readFileSync(join(root, 'src/constants/logo.ts'), 'utf8');
-const path = (name) => logoSource.match(new RegExp(`${name}: '([^']+)'`))[1];
-const W = 367;
-const H = 180;
-const PATHS = { bar: path('bar'), f: path('f'), l: path('l'), foot: path('foot') };
+const iconSvg = readFileSync(join(root, 'assets/brand/app-icon.svg'), 'utf8');
 
-const INK = '#0D0D0E';
-const PAPER = '#F2EFEA';
-const ORANGE = '#FF6A13';
+const INK = '#0F141A';
 
-/** The monogram centred on a square canvas, `scale` of its width wide. */
-function mark({ size, scale, light = PAPER, accent = ORANGE }) {
+/** The icon artwork centred on a square canvas, `scale` of its width wide. */
+function mark({ size, scale, mono = false }) {
   const width = size * scale;
-  const height = (width * H) / W;
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${W} ${H}"
-    style="position:absolute;left:${(size - width) / 2}px;top:${(size - height) / 2}px">
-    <path d="${PATHS.bar}" fill="${accent}"/><path d="${PATHS.f}" fill="${light}"/>
-    <path d="${PATHS.l}" fill="${light}"/><path d="${PATHS.foot}" fill="${accent}"/></svg>`;
+  let svg = iconSvg.replace('<svg ', `<svg width="${width}" height="${width}" style="position:absolute;left:${(size - width) / 2}px;top:${(size - width) / 2}px" `);
+  if (mono) svg = svg.replaceAll('url(#orange)', '#FFFFFF');
+  return svg;
 }
 
 const darkBackground = (size) =>
   `<div style="position:absolute;inset:0;background:
-     radial-gradient(circle at 50% 30%, rgba(255,106,19,0.22), rgba(255,106,19,0) 60%),
-     linear-gradient(160deg, #1B1A1D 0%, ${INK} 70%);width:${size}px;height:${size}px"></div>`;
+     radial-gradient(circle at 50% 40%, #18202A 0%, ${INK} 70%);width:${size}px;height:${size}px"></div>`;
 
 const ASSETS = [
   // Legacy square icon (also used by Expo for the Play listing preview).
-  { file: 'assets/images/icon.png', size: 1024, html: (s) => darkBackground(s) + mark({ size: s, scale: 0.66 }) },
+  { file: 'assets/images/icon.png', size: 1024, html: (s) => darkBackground(s) + mark({ size: s, scale: 0.86 }) },
   // Adaptive icon: the launcher masks the 108dp canvas; keep the logo in the central 66dp.
   { file: 'assets/images/android-icon-background.png', size: 1024, html: (s) => darkBackground(s) },
-  { file: 'assets/images/android-icon-foreground.png', size: 1024, html: (s) => mark({ size: s, scale: 0.5 }) },
+  { file: 'assets/images/android-icon-foreground.png', size: 1024, html: (s) => mark({ size: s, scale: 0.58 }) },
   {
     file: 'assets/images/android-icon-monochrome.png',
     size: 1024,
-    html: (s) => mark({ size: s, scale: 0.5, light: '#FFFFFF', accent: '#FFFFFF' }),
+    html: (s) => mark({ size: s, scale: 0.58, mono: true }),
   },
   { file: 'assets/images/splash-icon.png', size: 1024, html: (s) => mark({ size: s, scale: 0.9 }) },
-  { file: 'assets/images/favicon.png', size: 96, html: (s) => darkBackground(s) + mark({ size: s, scale: 0.72 }) },
+  { file: 'assets/images/favicon.png', size: 96, html: (s) => darkBackground(s) + mark({ size: s, scale: 0.9 }) },
 ];
 
 const chrome = process.env.CHROME_PATH ?? 'C:/Program Files/Google/Chrome/Application/chrome.exe';

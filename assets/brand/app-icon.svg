@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="31 20 310 310">
+  <defs>
+    <linearGradient id="orange" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FF901C"/>
+      <stop offset="1" stop-color="#F56800"/>
+    </linearGradient>
+    <mask id="ring-gaps">
+      <rect x="0" y="0" width="400" height="400" fill="#fff"/>
+      <rect x="144" y="34" width="39" height="74" rx="19.5" fill="#000"/>
+      <rect x="237" y="34" width="39" height="74" rx="19.5" fill="#000"/>
+    </mask>
+  </defs>
+  <rect x="95" y="77" width="221" height="186" rx="36" fill="none" stroke="#FFFFFF" stroke-width="22" mask="url(#ring-gaps)"/>
+  <rect x="150" y="40" width="27" height="62" rx="13.5" fill="#FFFFFF"/>
+  <rect x="243" y="40" width="27" height="62" rx="13.5" fill="#FFFFFF"/>
+  <polyline points="161,178 197,210 259,134" fill="none" stroke="url(#orange)" stroke-width="27" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M73,171 C52,200 40,245 52,275 C66,305 120,315 216,290 C160,298 110,291 88,268 C68,248 61,205 73,171 Z" fill="url(#orange)"/>
+</svg>

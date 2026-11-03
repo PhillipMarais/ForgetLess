@@ -1,7 +1,7 @@
 /**
  * The ForgetLess "FL" monogram: slanted F and L in ink (or white) with signal-orange cuts.
- * Shared by the in-app logo (components/logo.tsx) and the icon generator
- * (scripts/generate-brand-assets.mjs), so the app and its icons always match.
+ * Used by the in-app logo (components/logo.tsx) and the widgets. The launcher icon is
+ * separate: assets/brand/app-icon.svg, drawn by scripts/generate-brand-assets.mjs.
  */
 
 export const LOGO_VIEWBOX = { width: 367, height: 180 };
