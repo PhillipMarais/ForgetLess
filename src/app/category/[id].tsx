@@ -38,30 +38,7 @@ export default function CategoryScreen() {
   const { category, notes, categories } = data;
   return (
     <ThemedView style={styles.fill}>
-      <Stack.Screen
-        options={{
-          title: category.name,
-          headerRight: () => (
-            <View style={styles.headerActions}>
-              <IconButton
-                icon={Icons.edit}
-                label="Edit category"
-                onPress={() =>
-                  router.push({ pathname: '/category-editor/[id]', params: { id: category.id } })
-                }
-              />
-              <IconButton
-                icon={Icons.add}
-                label="New note in this category"
-                variant="filled"
-                onPress={() =>
-                  router.push({ pathname: '/note/[id]', params: { id: 'new', category: category.id } })
-                }
-              />
-            </View>
-          ),
-        }}
-      />
+      <CategoryHeader id={category.id} name={category.name} />
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.summary}>
           <CategoryIcon uri={category.iconUri} size={64} />
@@ -99,6 +76,35 @@ export default function CategoryScreen() {
         )}
       </ScrollView>
     </ThemedView>
+  );
+}
+
+/**
+ * Its own component so the header is only rebuilt when the name changes, not each time the
+ * notes reload: rebuilding it while a note editor closes over this screen crashes Android.
+ */
+function CategoryHeader({ id, name }: { id: string; name: string }) {
+  return (
+    <Stack.Screen
+      options={{
+        title: name,
+        headerRight: () => (
+          <View style={styles.headerActions}>
+            <IconButton
+              icon={Icons.edit}
+              label="Edit category"
+              onPress={() => router.push({ pathname: '/category-editor/[id]', params: { id } })}
+            />
+            <IconButton
+              icon={Icons.add}
+              label="New note in this category"
+              variant="filled"
+              onPress={() => router.push({ pathname: '/note/[id]', params: { id: 'new', category: id } })}
+            />
+          </View>
+        ),
+      }}
+    />
   );
 }
 

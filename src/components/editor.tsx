@@ -1,5 +1,5 @@
 import { router, type Href } from 'expo-router';
-import type { PropsWithChildren } from 'react';
+import { useState, type PropsWithChildren } from 'react';
 import { Pressable, StyleSheet } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -50,6 +50,17 @@ export function HeaderTextButton({
       </ThemedText>
     </Pressable>
   );
+}
+
+/**
+ * Header options that stop changing once `freeze` is called (when the editor starts saving
+ * or closing). On Android, rebuilding a header's buttons while its screen is closing crashes
+ * the app ("The specified child already has a parent"), and saving sets off data refreshes
+ * that would otherwise do exactly that.
+ */
+export function useClosingHeader<T extends object>(options: T) {
+  const [frozen, setFrozen] = useState<T | null>(null);
+  return { options: frozen ?? options, freeze: () => setFrozen(options) };
 }
 
 /** Go back, or to `fallback` when the screen was opened directly (e.g. a reloaded web page). */

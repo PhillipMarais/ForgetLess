@@ -7,7 +7,7 @@ import { AlarmField } from '@/components/alarm-field';
 import { ChipGroup } from '@/components/chip';
 import { DateTimeField } from '@/components/date-time-field';
 import { ClearTextButton } from '@/components/clear-text-button';
-import { EditorLayout, HeaderTextButton, leaveEditor } from '@/components/editor';
+import { EditorLayout, HeaderTextButton, leaveEditor, useClosingHeader } from '@/components/editor';
 import { EmptyState } from '@/components/empty-state';
 import { FormRow, FormSection, FormSwitch, FormTextInput } from '@/components/form';
 import { Icon, Icons } from '@/components/icon';
@@ -108,7 +108,13 @@ function TaskEditor({ task, attachments, alarm, initialTitle }: Loaded & { initi
       ? { dueAt: task.dueAt, dueAllDay: task.dueAllDay, rrule: task.rrule }
       : resolveSchedule(draft);
 
-  const save = async () => {
+  const header = useClosingHeader({
+    title: task ? 'Edit task' : 'Add task',
+    headerRight: () => <HeaderTextButton label="Save" onPress={save} disabled={!valid} />,
+  });
+
+  async function save() {
+    header.freeze();
     setSaving(true);
     const input = { title: draft.title, notes: draft.notes.trim() || null, ...resolved };
     const taskId = task ? task.id : await createTask(db, input);
@@ -119,21 +125,17 @@ function TaskEditor({ task, attachments, alarm, initialTitle }: Loaded & { initi
     await photos.save(db, 'task', taskId);
     if (alarmOffset !== null) await announceAlarm(db, 'task', taskId);
     leaveEditor('/tasks');
-  };
+  }
 
   const remove = async () => {
+    header.freeze();
     if (task) await deleteTask(db, task.id);
     leaveEditor('/tasks');
   };
 
   return (
     <EditorLayout>
-      <Stack.Screen
-        options={{
-          title: task ? 'Edit task' : 'Add task',
-          headerRight: () => <HeaderTextButton label="Save" onPress={save} disabled={!valid} />,
-        }}
-      />
+      <Stack.Screen options={header.options} />
       <FormTextInput
         value={draft.title}
         onChangeText={(title) => update({ title })}

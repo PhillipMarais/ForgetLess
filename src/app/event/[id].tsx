@@ -8,7 +8,7 @@ import { ChipGroup } from '@/components/chip';
 import { ChoiceDialog, type Choice } from '@/components/choice-dialog';
 import { DateTimeField } from '@/components/date-time-field';
 import { ClearTextButton } from '@/components/clear-text-button';
-import { EditorLayout, HeaderTextButton, leaveEditor } from '@/components/editor';
+import { EditorLayout, HeaderTextButton, leaveEditor, useClosingHeader } from '@/components/editor';
 import { EmptyState } from '@/components/empty-state';
 import { FormRow, FormSection, FormSwitch, FormTextInput } from '@/components/form';
 import { Icons } from '@/components/icon';
@@ -196,6 +196,7 @@ function EventEditor({ initial, existing }: { initial: Draft; existing?: Existin
   };
 
   const save = async (scope: Scope) => {
+    header.freeze();
     setDialog(null);
     setSaving(true);
     const input = toInput(draft, !existing || ruleChanged);
@@ -237,6 +238,7 @@ function EventEditor({ initial, existing }: { initial: Draft; existing?: Existin
   const remove = async (scope: Scope) => {
     setDialog(null);
     if (!existing) return;
+    header.freeze();
     if (repeating && scope === 'one') {
       await cancelOccurrence(db, existing.event.id, existing.occurrence.originalStart);
     } else {
@@ -245,12 +247,17 @@ function EventEditor({ initial, existing }: { initial: Draft; existing?: Existin
     leaveEditor('/calendar');
   };
 
-  const onSavePress = () => {
+  const header = useClosingHeader({
+    title: existing ? 'Edit event' : 'New event',
+    headerRight: () => <HeaderTextButton label="Save" onPress={onSavePress} disabled={!valid} />,
+  });
+
+  function onSavePress() {
     // Changing the repeat rule or all-day only makes sense for the whole series.
     const seriesOnly = ruleChanged || draft.allDay !== initial.allDay;
     if (repeating && !seriesOnly) setDialog('save');
     else save('all');
-  };
+  }
 
   const saveChoices: Choice<Scope>[] = [
     { label: 'This event', value: 'one' },
@@ -263,12 +270,7 @@ function EventEditor({ initial, existing }: { initial: Draft; existing?: Existin
 
   return (
     <EditorLayout>
-      <Stack.Screen
-        options={{
-          title: existing ? 'Edit event' : 'New event',
-          headerRight: () => <HeaderTextButton label="Save" onPress={onSavePress} disabled={!valid} />,
-        }}
-      />
+      <Stack.Screen options={header.options} />
       <FormTextInput
         value={draft.title}
         onChangeText={(title) => update({ title })}

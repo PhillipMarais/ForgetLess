@@ -9,7 +9,7 @@ import { ChipGroup } from '@/components/chip';
 import { ChoiceDialog, ConfirmDialog } from '@/components/choice-dialog';
 import { ClearTextButton } from '@/components/clear-text-button';
 import { DictationButton } from '@/components/dictation-button';
-import { HeaderTextButton, KEYBOARD_GAP, leaveEditor } from '@/components/editor';
+import { HeaderTextButton, KEYBOARD_GAP, leaveEditor, useClosingHeader } from '@/components/editor';
 import { DocumentList } from '@/components/document-list';
 import { EmptyState } from '@/components/empty-state';
 import { Icons } from '@/components/icon';
@@ -130,7 +130,23 @@ function NoteEditor({
     else leaveEditor('/notes');
   }, [leaving]);
 
-  const save = async () => {
+  const header = useClosingHeader({
+    title: note ? 'Note' : 'New note',
+    headerRight: () => (
+      <View style={styles.headerActions}>
+        <IconButton
+          icon={Icons.pin}
+          label={pinned ? 'Unpin note' : 'Pin note'}
+          color={pinned ? 'accentText' : 'textSecondary'}
+          onPress={() => setPinned(!pinned)}
+        />
+        <HeaderTextButton label="Save" onPress={save} disabled={!canSave} />
+      </View>
+    ),
+  });
+
+  async function save() {
+    header.freeze();
     setDialog(null);
     setSaving(true);
     if (dictation.listening) dictation.stop();
@@ -140,14 +156,16 @@ function NoteEditor({
     await photos.save(db, 'note', noteId);
     await files.save(db, 'note', noteId);
     setLeaving(true);
-  };
+  }
 
   const discard = () => {
+    header.freeze();
     setDialog(null);
     setLeaving(true);
   };
 
   const remove = async () => {
+    header.freeze();
     setDialog(null);
     if (note) await deleteNote(db, note.id);
     setLeaving(true);
@@ -155,22 +173,7 @@ function NoteEditor({
 
   return (
     <ThemedView style={styles.container}>
-      <Stack.Screen
-        options={{
-          title: note ? 'Note' : 'New note',
-          headerRight: () => (
-            <View style={styles.headerActions}>
-              <IconButton
-                icon={Icons.pin}
-                label={pinned ? 'Unpin note' : 'Pin note'}
-                color={pinned ? 'accentText' : 'textSecondary'}
-                onPress={() => setPinned(!pinned)}
-              />
-              <HeaderTextButton label="Save" onPress={save} disabled={!canSave} />
-            </View>
-          ),
-        }}
-      />
+      <Stack.Screen options={header.options} />
       <KeyboardAwareScrollView
         bottomOffset={KEYBOARD_GAP}
         contentContainerStyle={[styles.content, { paddingBottom: Spacing.four + insets.bottom }]}
