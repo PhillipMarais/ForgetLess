@@ -1,56 +1,46 @@
-# Welcome to your Expo app 👋
+# ForgetLess
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+An Android calendar, tasks and notes app with alarms that really ring. Everything stays on
+the phone: there's no account, no server, and the app has no internet access.
 
-## Get started
+![The ForgetLess widgets](assets/widgets/today.png)
 
-1. Install dependencies
+## Features
 
-   ```bash
-   npm install
-   ```
+- **Calendar:** day, week and month views. The month view lists each day's events and tasks.
+  It shows public holidays for about 200 countries, offline, plus days from the phone's Google
+  holiday calendar such as election days.
+- **Tasks:** dates, repeats, steps and pictures. They can be ticked off from the home screen.
+- **Notes:** categories, pinning, pictures, PDFs, sharing and voice-to-text.
+- **Alarms:** they ring through silent mode and over the lock screen, can be snoozed, and are
+  set again after the phone restarts.
+- **Widgets:** Today, Calendar, Tasks, Notes and Voice note, with quick-add popups.
+- **Themes:** light, dark or your own colours. It works on phones and tablets.
 
-2. Start the app
+## Built with
 
-   ```bash
-   npx expo start
-   ```
+- Expo SDK 58, React Native 0.88 and TypeScript, using Expo Router.
+- Local SQLite (expo-sqlite).
+- An Expo module in Kotlin (`modules/forgetless-device`). It provides the alarms, the alarm
+  screen, the widgets' quick-add popup, PDF page rendering and the phone's holiday calendars.
+- react-native-android-widget, expo-speech-recognition and date-holidays.
 
-In the output, you'll find options to open the app in a
+## Running it
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **src/app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+Android only. It needs a development build, not Expo Go.
 
 ```bash
-npm run reset-project
+npm install
+npm run check                 # typecheck, lint and tests
+npx expo run:android          # debug build on a connected phone
 ```
 
-This command will move the starter code to the **example** directory and create a blank **src/app** directory where you can start developing.
+For release builds, see [docs/play-store-release.md](docs/play-store-release.md).
 
-### Other setup steps
+## Privacy
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+See the [privacy policy](https://phillipmarais.github.io/forgetless/privacy-policy.html).
 
-## Learn more
+## Licence
 
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+[MIT](LICENSE) © Phillip Marais
