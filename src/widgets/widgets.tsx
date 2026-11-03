@@ -43,8 +43,7 @@ export type ToggleTaskData = { id: string; occurrence: Task['occurrence']; dueAt
 
 /**
  * Corner radius of the widgets' frames. The home screen rounds widgets off by its own radius
- * (larger on Samsung phones), which cut through a smaller frame's border at the corners, so
- * the frame follows the phone's radius, a little larger so the border stays whole.
+ * (larger on Samsung phones), so the frame follows it and the two curves match.
  */
 const RADIUS = (() => {
   try {
@@ -64,8 +63,6 @@ function Frame({ colors, link, children }: { colors: WidgetColors; link: string;
         flexDirection: 'column',
         backgroundColor: colors.background,
         borderRadius: RADIUS,
-        borderWidth: 1,
-        borderColor: colors.border,
         padding: 12,
       }}>
       {children}
@@ -380,10 +377,10 @@ export function CalendarWidget({
 }) {
   const today = startOfDay();
   const month = new Date(data.month);
-  // Inside the frame's padding (12 + 1 border each side); header ~42dp, weekday row 18dp.
-  const rowHeight = Math.max(22, Math.floor((height - 26 - 42 - 18) / data.weeks.length));
+  // Inside the frame's padding (12 each side); header ~42dp, weekday row 18dp.
+  const rowHeight = Math.max(22, Math.floor((height - 24 - 42 - 18) / data.weeks.length));
   // Fixed widths: with flex, long names pushed the columns out of line.
-  const cellWidth = Math.floor((width - 26) / 7);
+  const cellWidth = Math.floor((width - 24) / 7);
   const lines = Math.max(0, Math.floor((rowHeight - DAY_NUMBER - 2) / ITEM_LINE));
   const fontSize = cellWidth < 44 ? 9 : 10;
 
