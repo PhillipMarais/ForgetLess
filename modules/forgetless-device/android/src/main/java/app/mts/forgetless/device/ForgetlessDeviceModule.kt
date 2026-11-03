@@ -131,6 +131,14 @@ class ForgetlessDeviceModule : Module() {
     }
 
     /** A short "ping", e.g. when a voice note starts listening. */
+    // The home screen clips widgets to this radius; the widgets' frames follow it.
+    Function("widgetCornerRadius") {
+      if (Build.VERSION.SDK_INT < 31) return@Function 0.0
+      val resources = context.resources
+      (resources.getDimension(android.R.dimen.system_app_widget_background_radius) /
+        resources.displayMetrics.density).toDouble()
+    }
+
     Function("playPing") {
       val tone = ToneGenerator(android.media.AudioManager.STREAM_NOTIFICATION, 90)
       tone.startTone(ToneGenerator.TONE_PROP_BEEP, 160)

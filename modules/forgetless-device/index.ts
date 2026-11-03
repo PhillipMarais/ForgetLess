@@ -54,6 +54,8 @@ type ForgetlessDeviceModule = {
   renderPdfPage(uri: string, index: number, width: number): Promise<PdfPage>;
   /** Holidays in the phone's Google holiday calendars within [from, to); empty without calendar access. */
   phoneHolidays(from: number, to: number): PhoneHoliday[];
+  /** How round the home screen draws widgets' corners, in dp (0 before Android 12). */
+  widgetCornerRadius(): number;
   /** A short beep, e.g. when a voice note starts listening. */
   playPing(): void;
   /** Sends the app to the background, like pressing Home. */

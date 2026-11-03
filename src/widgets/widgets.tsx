@@ -13,6 +13,7 @@ import {
 import type { EventOccurrence } from '@/db/events';
 import type { Note } from '@/db/notes';
 import type { Task } from '@/db/tasks';
+import { ForgetlessDevice } from '@/lib/device';
 import { formatDueLabel, formatTime, startOfDay, weekdayLabels } from '@/lib/dates';
 
 import { logoSvg, WidgetFonts, WidgetIcons, type WidgetColors } from './widget-theme';
@@ -40,7 +41,18 @@ const open = (uri: string) => ({ clickAction: 'OPEN_URI', clickActionData: { uri
 /** The data a task checkbox sends back when tapped (see task-handler). */
 export type ToggleTaskData = { id: string; occurrence: Task['occurrence']; dueAt: number | null; done: boolean };
 
-const RADIUS = 24;
+/**
+ * Corner radius of the widgets' frames. The home screen rounds widgets off by its own radius
+ * (larger on Samsung phones), which cut through a smaller frame's border at the corners, so
+ * the frame follows the phone's radius, a little larger so the border stays whole.
+ */
+const RADIUS = (() => {
+  try {
+    return Math.max(24, (ForgetlessDevice?.widgetCornerRadius() ?? 0) + 2);
+  } catch {
+    return 24;
+  }
+})();
 
 function Frame({ colors, link, children }: { colors: WidgetColors; link: string; children: unknown }) {
   return (
@@ -286,7 +298,7 @@ export function NotesWidget({ colors, notes }: { colors: WidgetColors; notes: No
         colors={colors}
         title="Notes"
         buttons={[
-          { icon: WidgetIcons.mic(colors.accentText), link: AppLinks.voiceNote, label: 'Speak a note' },
+          { icon: WidgetIcons.mic(colors.text), link: AppLinks.voiceNote, label: 'Speak a note' },
           { icon: WidgetIcons.add(colors.onAccent), link: AppLinks.newNote, label: 'New note', filled: true },
         ]}
       />
@@ -295,32 +307,33 @@ export function NotesWidget({ colors, notes }: { colors: WidgetColors; notes: No
       ) : (
         <ListWidget style={{ height: 'match_parent', width: 'match_parent' }}>
           {notes.slice(0, 30).map((note) => (
-            <FlexWidget
-              key={note.id}
-              {...open(AppLinks.note(note.id))}
-              style={{
-                width: 'match_parent',
-                flexDirection: 'column',
-                backgroundColor: colors.surface,
-                borderRadius: 14,
-                paddingHorizontal: 14,
-                paddingVertical: 12,
-                marginBottom: 10,
-              }}>
-              <TextWidget
-                text={note.title.trim() || 'Untitled'}
-                maxLines={1}
-                truncate="END"
-                style={{ fontSize: 15, fontFamily: WidgetFonts.bodyBold, color: colors.text }}
-              />
-              {note.body.trim() ? (
+            // A list's rows ignore their own margins, so the gap is padding around the card.
+            <FlexWidget key={note.id} style={{ width: 'match_parent', paddingBottom: 10 }}>
+              <FlexWidget
+                {...open(AppLinks.note(note.id))}
+                style={{
+                  width: 'match_parent',
+                  flexDirection: 'column',
+                  backgroundColor: colors.surface,
+                  borderRadius: 14,
+                  paddingHorizontal: 14,
+                  paddingVertical: 12,
+                }}>
                 <TextWidget
-                  text={note.body.trim().split('\n')[0]}
+                  text={note.title.trim() || 'Untitled'}
                   maxLines={1}
                   truncate="END"
-                  style={{ fontSize: 13, fontFamily: WidgetFonts.body, color: colors.textSecondary, marginTop: 4 }}
+                  style={{ fontSize: 15, fontFamily: WidgetFonts.bodyBold, color: colors.text }}
                 />
-              ) : null}
+                {note.body.trim() ? (
+                  <TextWidget
+                    text={note.body.trim().split('\n')[0]}
+                    maxLines={1}
+                    truncate="END"
+                    style={{ fontSize: 13, fontFamily: WidgetFonts.body, color: colors.textSecondary, marginTop: 4 }}
+                  />
+                ) : null}
+              </FlexWidget>
             </FlexWidget>
           ))}
         </ListWidget>
