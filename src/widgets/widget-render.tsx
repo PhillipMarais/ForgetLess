@@ -42,7 +42,7 @@ export function widgetDatabase() {
   return database;
 }
 
-type Size = { width: number; height: number; widgetId?: number };
+export type Size = { width: number; height: number; widgetId?: number };
 
 /**
  * How many months each calendar widget has been paged from this one, by widget id. Kept in
@@ -72,14 +72,14 @@ export async function renderWidgetByName(
   return { light: drawWidget(data, palettes.light, size), dark: drawWidget(data, palettes.dark, size) };
 }
 
-type WidgetData =
+export type WidgetData =
   | { name: 'Today'; data: TodayData }
   | { name: 'Tasks'; tasks: Task[] }
   | { name: 'Notes'; data: NotesData }
   | { name: 'Calendar'; data: CalendarData }
   | { name: 'VoiceNote' };
 
-function drawWidget(widget: WidgetData, colors: WidgetColors, size: Size) {
+export function drawWidget(widget: WidgetData, colors: WidgetColors, size: Size) {
   switch (widget.name) {
     case 'Today':
       return <TodayWidget colors={colors} data={widget.data} />;

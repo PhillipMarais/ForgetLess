@@ -76,6 +76,7 @@
           "widgets": [
             {
               "name": "Today",
+              "previewImage": "./assets/widgets/today.png",
               "label": "ForgetLess Today",
               "description": "Today's events and tasks; tick tasks off right here.",
               "minWidth": "110dp",
@@ -87,6 +88,7 @@
             },
             {
               "name": "Calendar",
+              "previewImage": "./assets/widgets/calendar.png",
               "label": "ForgetLess Calendar",
               "description": "The month with what's on each day; page through months.",
               "minWidth": "160dp",
@@ -98,6 +100,7 @@
             },
             {
               "name": "Tasks",
+              "previewImage": "./assets/widgets/tasks.png",
               "label": "ForgetLess Tasks",
               "description": "Your open tasks; tick them off right here.",
               "minWidth": "110dp",
@@ -108,8 +111,9 @@
             },
             {
               "name": "Notes",
+              "previewImage": "./assets/widgets/notes.png",
               "label": "ForgetLess Notes",
-              "description": "Your latest notes, with buttons for a new or spoken note.",
+              "description": "Pinned notes, your categories and latest notes, with buttons for a new or spoken note.",
               "minWidth": "110dp",
               "minHeight": "110dp",
               "targetCellWidth": 4,
@@ -118,6 +122,7 @@
             },
             {
               "name": "VoiceNote",
+              "previewImage": "./assets/widgets/voicenote.png",
               "label": "ForgetLess Voice note",
               "description": "One tap to speak a note.",
               "minWidth": "40dp",
