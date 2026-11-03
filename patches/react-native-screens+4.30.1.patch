@@ -1,15 +1,45 @@
 diff --git a/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStackHeaderConfig.kt b/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStackHeaderConfig.kt
-index 68b8d85..a2a3fcd 100644
+index 68b8d85..05b1fd4 100644
 --- a/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStackHeaderConfig.kt
 +++ b/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStackHeaderConfig.kt
-@@ -397,6 +397,10 @@ class ScreenStackHeaderConfig(
+@@ -397,13 +397,40 @@ class ScreenStackHeaderConfig(
                  else -> {}
              }
              view.layoutParams = params
-+            // ForgetLess patch: a header button can still be attached to an old toolbar (when the
-+            // header updates around a modal or a closing screen); adding it again then crashes with
-+            // "The specified child already has a parent". Detach it first.
-+            (view.parent as? android.view.ViewGroup)?.removeView(view)
++            // ForgetLess patch: a header button can still be attached to a toolbar (an old one, or
++            // this one mid screen transition, where removeView keeps it as a "disappearing" child
++            // with its parent set); adding it again then crashes with "The specified child already
++            // has a parent". End the transition and detach it first; if it is still stuck, skip it
++            // for now and update again shortly instead of crashing.
++            (view.parent as? android.view.ViewGroup)?.let { old ->
++                old.endViewTransition(view)
++                if (view.parent === old) old.removeView(view)
++                old.endViewTransition(view)
++            }
++            if (view.parent != null) {
++                stuckSubviews = true
++                i++
++                continue
++            }
              toolbar.addView(view)
              i++
          }
++        if (stuckSubviews && stuckRetries < 10) {
++            stuckRetries++
++            stuckSubviews = false
++            postDelayed({ maybeUpdate() }, 100)
++        } else if (!stuckSubviews) {
++            stuckRetries = 0
++        }
++        stuckSubviews = false
+ 
+         headerHeightUpdateProxy.updateHeaderHeightIfNeeded(this, screen)
+     }
+ 
++    // ForgetLess patch: header buttons that could not be re-added yet (see onUpdate).
++    private var stuckSubviews = false
++    private var stuckRetries = 0
++
+     private fun maybeUpdate() {
+         if (parent != null && !isDestroyed && screen?.isBeingRemoved == false) {
+             onUpdate()
