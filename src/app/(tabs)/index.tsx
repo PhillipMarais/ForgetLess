@@ -43,7 +43,7 @@ export default function TodayScreen() {
   const tomorrow = addDays(today, 1);
   const [filter, setFilter] = useState<Filter>('all');
   const { settings } = useSettings();
-  const holiday = holidaysBetween(settings.holidayRegion, today, tomorrow).get(today);
+  const holiday = holidaysBetween(settings.holidayRegion, today, tomorrow, settings.phoneHolidays).get(today);
   const [tab, setTab] = useState<Tab>('today');
   // Ticks every 30 seconds so "in 25 minutes" stays right and rung alarms grey out.
   const now = useNow(true, 30_000);

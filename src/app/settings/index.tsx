@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Linking, StyleSheet, View } from 'react-native';
 
 import { FormTextInput } from '@/components/form';
 import { SettingChoices, SettingSwitch, SettingsGroup, SettingsPage } from '@/components/settings-row';
@@ -7,6 +7,7 @@ import { ThemedText } from '@/components/themed-text';
 import { SPEECH_LANGUAGES, speechLanguageName } from '@/constants/speech-languages';
 import type { CalendarStartView } from '@/db/settings';
 import { Spacing } from '@/constants/theme';
+import { askCalendarAccess, hasCalendarAccess } from '@/lib/calendar-access';
 import { holidayRegionChoices, holidayRegionTitle, type HolidayRegion } from '@/lib/holidays';
 import { useSettings } from '@/hooks/use-settings';
 
@@ -92,6 +93,11 @@ export default function GeneralSettingsScreen() {
           value={settings.holidayRegion}
           onChange={(value) => setSetting('holidayRegion', value)}
         />
+        <PhoneHolidaysSwitch
+          value={settings.phoneHolidays && settings.holidayRegion !== 'none'}
+          disabled={settings.holidayRegion === 'none'}
+          onChange={(value) => setSetting('phoneHolidays', value)}
+        />
       </SettingsGroup>
 
       <SettingsGroup
@@ -106,6 +112,49 @@ export default function GeneralSettingsScreen() {
         />
       </SettingsGroup>
     </SettingsPage>
+  );
+}
+
+/**
+ * Adds the phone's Google holiday calendar, which also has days declared at short notice
+ * (e.g. election days). Turning it on asks for calendar access; once refused, Android only
+ * lets it be given in the app's settings.
+ */
+function PhoneHolidaysSwitch({
+  value,
+  disabled,
+  onChange,
+}: {
+  value: boolean;
+  disabled: boolean;
+  onChange: (value: boolean) => void;
+}) {
+  const [access, setAccess] = useState<boolean | null>(null);
+  useEffect(() => {
+    hasCalendarAccess().then(setAccess);
+  }, []);
+  return (
+    <SettingSwitch
+      divided
+      title="Also from your phone’s calendar"
+      description={
+        !value
+          ? 'Only the holidays above show.'
+          : access === false
+            ? 'Needs calendar access: turn this off and on to allow it, or allow Calendar in the app’s settings.'
+            : 'Adds days your Google holiday calendar has, like election days.'
+      }
+      value={value}
+      disabled={disabled}
+      onChange={async (next) => {
+        onChange(next);
+        if (!next || access) return;
+        const granted = await askCalendarAccess();
+        setAccess(granted);
+        // Refused before: Android won't ask again, so open the app's settings instead.
+        if (!granted && access === false) Linking.openSettings();
+      }}
+    />
   );
 }
 

@@ -32,6 +32,16 @@ export type AlarmSound = { title: string; uri: string };
 
 export type PdfPage = { uri: string; width: number; height: number };
 
+/** An event from one of the phone's Google holiday calendars. */
+export type PhoneHoliday = {
+  title: string;
+  /** Epoch ms; all-day events start at midnight UTC on their date. */
+  begin: number;
+  allDay: boolean;
+  /** Google's calendars say "Public holiday" or "Observance". */
+  description: string;
+};
+
 type ForgetlessDeviceModule = {
   setAlarms(alarms: NativeAlarm[], config: AlarmConfig): void;
   testAlarm(title: string, body: string): void;
@@ -42,6 +52,8 @@ type ForgetlessDeviceModule = {
   stopPreview(): void;
   pdfPageCount(uri: string): Promise<number>;
   renderPdfPage(uri: string, index: number, width: number): Promise<PdfPage>;
+  /** Holidays in the phone's Google holiday calendars within [from, to); empty without calendar access. */
+  phoneHolidays(from: number, to: number): PhoneHoliday[];
   /** A short beep, e.g. when a voice note starts listening. */
   playPing(): void;
   /** Sends the app to the background, like pressing Home. */

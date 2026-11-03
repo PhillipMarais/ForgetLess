@@ -5,4 +5,5 @@ export {
   type AlarmPermissions,
   type AlarmSound,
   type PdfPage,
+  type PhoneHoliday,
 } from '../../modules/forgetless-device';

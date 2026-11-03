@@ -1,12 +1,13 @@
 import type HolidaysLibrary from 'date-holidays';
 
 import { addDays, startOfDay } from './dates';
+import { ForgetlessDevice } from './device';
 
 /**
  * Public holidays, worked out on the phone (no internet or paid service). South Africa's are
  * built in; every other country's come from the date-holidays library (data CC BY 3.0). Days
- * declared one year at a time (e.g. election days) can't be known in advance and aren't
- * included.
+ * declared one year at a time (e.g. election days) can't be known in advance, so with
+ * calendar access the phone's Google holiday calendar adds them.
  */
 
 /** 'auto' follows the phone's region (no location access needed); else a country code. */
@@ -157,16 +158,66 @@ function countryHolidays(country: string, year: number): Map<number, string> {
   return result;
 }
 
-/** Holidays within [from, to), by day start (local midnight), with their names. */
-export function holidaysBetween(region: HolidayRegion, from: number, to: number): Map<number, string> {
+/** How long the phone's holiday calendar is read from memory before it is asked again. */
+const PHONE_CACHE_MS = 60_000;
+const phoneCache = new Map<string, { at: number; holidays: Map<number, string> }>();
+
+/** Forgets what was read from the phone's calendar, e.g. once calendar access is given. */
+export function clearPhoneHolidayCache() {
+  phoneCache.clear();
+}
+
+/**
+ * Public holidays (not observances like Mother's Day) in the phone's Google holiday calendars
+ * within [from, to). Empty without calendar access, on web and in tests.
+ */
+function phoneCalendarHolidays(from: number, to: number): Map<number, string> {
+  const key = `${from}-${to}`;
+  const cached = phoneCache.get(key);
+  if (cached && Date.now() - cached.at < PHONE_CACHE_MS) return cached.holidays;
+  const holidays = new Map<number, string>();
+  try {
+    // A day either side: all-day events start at midnight UTC, not local midnight.
+    for (const holiday of ForgetlessDevice?.phoneHolidays(addDays(from, -1), addDays(to, 1)) ?? []) {
+      if (/observance/i.test(holiday.description)) continue;
+      const date = new Date(holiday.begin);
+      const day = holiday.allDay
+        ? new Date(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()).getTime()
+        : startOfDay(holiday.begin);
+      if (day >= startOfDay(from) && day < to && !holidays.has(day)) holidays.set(day, holiday.title);
+    }
+  } catch {
+    // No phone holidays; the built-in ones still show.
+  }
+  phoneCache.set(key, { at: Date.now(), holidays });
+  return holidays;
+}
+
+/**
+ * Holidays within [from, to), by day start (local midnight), with their names. With
+ * `fromPhone`, days the phone's holiday calendar has that the built-in list lacks are added.
+ */
+export function holidaysBetween(
+  region: HolidayRegion,
+  from: number,
+  to: number,
+  fromPhone = false,
+): Map<number, string> {
   const result = new Map<number, string>();
+  if (region === 'none') return result;
   const country = resolveHolidayRegion(region);
-  if (!country) return result;
-  const first = new Date(from).getFullYear();
-  const last = new Date(to - 1).getFullYear();
-  for (let year = first; year <= last; year++) {
-    for (const [day, name] of countryHolidays(country, year)) {
-      if (day >= startOfDay(from) && day < to) result.set(day, name);
+  if (country) {
+    const first = new Date(from).getFullYear();
+    const last = new Date(to - 1).getFullYear();
+    for (let year = first; year <= last; year++) {
+      for (const [day, name] of countryHolidays(country, year)) {
+        if (day >= startOfDay(from) && day < to) result.set(day, name);
+      }
+    }
+  }
+  if (fromPhone) {
+    for (const [day, name] of phoneCalendarHolidays(from, to)) {
+      if (!result.has(day)) result.set(day, name);
     }
   }
   return result;

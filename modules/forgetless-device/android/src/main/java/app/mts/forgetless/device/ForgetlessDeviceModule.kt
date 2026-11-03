@@ -1,8 +1,11 @@
 package app.mts.forgetless.device
 
+import android.Manifest
 import android.app.NotificationManager
+import android.content.ContentUris
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.pdf.PdfRenderer
@@ -15,7 +18,9 @@ import android.os.Looper
 import android.net.Uri
 import android.os.Build
 import android.os.ParcelFileDescriptor
+import android.provider.CalendarContract
 import android.provider.Settings
+import androidx.core.content.ContextCompat
 import androidx.core.app.NotificationManagerCompat
 import expo.modules.kotlin.exception.Exceptions
 import expo.modules.kotlin.modules.Module
@@ -139,6 +144,51 @@ class ForgetlessDeviceModule : Module() {
 
     OnDestroy {
       preview?.stop()
+    }
+
+    // --- Phone holiday calendars ----------------------------------------------------------
+
+    // Public holidays from the phone's Google holiday calendars (e.g. "Holidays in South
+    // Africa"), which also have days declared at short notice, like election days. Empty
+    // without calendar access.
+    Function("phoneHolidays") { from: Double, to: Double ->
+      if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CALENDAR) !=
+        PackageManager.PERMISSION_GRANTED
+      ) {
+        return@Function emptyList<Map<String, Any>>()
+      }
+      val uri = CalendarContract.Instances.CONTENT_URI.buildUpon()
+        .let { ContentUris.appendId(it, from.toLong()); ContentUris.appendId(it, to.toLong()); it }
+        .build()
+      val holidays = mutableListOf<Map<String, Any>>()
+      try {
+        context.contentResolver.query(
+          uri,
+          arrayOf(
+            CalendarContract.Instances.TITLE,
+            CalendarContract.Instances.BEGIN,
+            CalendarContract.Instances.ALL_DAY,
+            CalendarContract.Instances.DESCRIPTION,
+          ),
+          "${CalendarContract.Instances.OWNER_ACCOUNT} LIKE ? AND ${CalendarContract.Instances.VISIBLE} = 1",
+          arrayOf("%#holiday@group.v.calendar.google.com"),
+          null,
+        )?.use { cursor ->
+          while (cursor.moveToNext()) {
+            holidays.add(
+              mapOf(
+                "title" to (cursor.getString(0) ?: ""),
+                "begin" to cursor.getLong(1).toDouble(),
+                "allDay" to (cursor.getInt(2) == 1),
+                "description" to (cursor.getString(3) ?: ""),
+              ),
+            )
+          }
+        }
+      } catch (_: Exception) {
+        // A calendar app that misbehaves just means no extra holidays.
+      }
+      holidays
     }
 
     // --- PDFs -----------------------------------------------------------------------------

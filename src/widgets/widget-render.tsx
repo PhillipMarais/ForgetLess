@@ -135,7 +135,7 @@ export async function loadCalendarData(db: SQLiteDatabase, settings: Settings, o
     if (list) list.push(item);
     else items.set(day, [item]);
   };
-  for (const [day, name] of holidaysBetween(settings.holidayRegion, from, to)) {
+  for (const [day, name] of holidaysBetween(settings.holidayRegion, from, to, settings.phoneHolidays)) {
     add(day, { title: name, kind: 'holiday' });
   }
   const occurrences = (await listOccurrences(db, from, to)).sort(

@@ -1,4 +1,7 @@
+import { ForgetlessDevice } from './device';
 import { easterSunday, holidayRegionChoices, holidaysBetween, isHolidayRegion } from './holidays';
+
+jest.mock('./device', () => ({ ForgetlessDevice: { phoneHolidays: jest.fn(() => []) } }));
 
 const day = (y: number, m: number, d: number) => new Date(y, m - 1, d).getTime();
 const year = (y: number) => holidaysBetween('ZA', day(y, 1, 1), day(y + 1, 1, 1));
@@ -61,5 +64,26 @@ describe('other countries', () => {
     expect(isHolidayRegion('US')).toBe(true);
     expect(isHolidayRegion('XX')).toBe(false);
     expect(isHolidayRegion(3)).toBe(false);
+  });
+});
+
+describe('the phone’s holiday calendar', () => {
+  const utc = (y: number, m: number, d: number) => Date.UTC(y, m - 1, d);
+
+  it('adds public holidays the built-in list lacks, but not observances or duplicates', () => {
+    jest.mocked(ForgetlessDevice!.phoneHolidays).mockReturnValue([
+      { title: 'Local Government Elections', begin: utc(2026, 11, 4), allDay: true, description: 'Public holiday' },
+      { title: 'Mother’s Day', begin: utc(2026, 11, 8), allDay: true, description: 'Observance. To hide observances…' },
+      { title: 'Christmas', begin: utc(2026, 12, 25), allDay: true, description: 'Public holiday' },
+    ]);
+    const holidays = holidaysBetween('ZA', day(2026, 11, 1), day(2027, 1, 1), true);
+    expect(holidays.get(day(2026, 11, 4))).toBe('Local Government Elections');
+    expect(holidays.has(day(2026, 11, 8))).toBe(false);
+    expect(holidays.get(day(2026, 12, 25))).toBe('Christmas Day');
+  });
+
+  it('is left out when turned off or holidays are off', () => {
+    expect(holidaysBetween('ZA', day(2026, 10, 1), day(2026, 11, 1), false).size).toBe(0);
+    expect(holidaysBetween('none', day(2026, 10, 1), day(2026, 11, 1), true).size).toBe(0);
   });
 });

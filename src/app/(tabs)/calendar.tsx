@@ -37,6 +37,7 @@ import {
   startOfWeek,
   weekDays,
 } from '@/lib/dates';
+import { askCalendarAccess, hasCalendarAccess } from '@/lib/calendar-access';
 import { holidaysBetween } from '@/lib/holidays';
 
 const VIEWS = [
@@ -103,6 +104,18 @@ export default function CalendarScreen() {
     if (linkedDay) router.setParams({ day: undefined });
   }, [linkedDay]);
 
+  // Once, ask to read the phone's holiday calendar (it has election days and the like).
+  const [, setAccessChecked] = useState(false);
+  useEffect(() => {
+    if (!settings.phoneHolidays || settings.calendarAccessAsked || settings.holidayRegion === 'none') return;
+    hasCalendarAccess().then(async (access) => {
+      if (access) return;
+      setSetting('calendarAccessAsked', true);
+      // Granted: draw again so the new holidays show.
+      if (await askCalendarAccess()) setAccessChecked(true);
+    });
+  }, [settings.phoneHolidays, settings.calendarAccessAsked, settings.holidayRegion, setSetting]);
+
   const changeView = (next: CalendarView) => {
     setView(next);
     setSetting('calendarView', next);
@@ -148,7 +161,7 @@ export default function CalendarScreen() {
   const marks: DayMarks = {
     events: eventDays,
     tasks: taskDays,
-    holidays: holidaysBetween(settings.holidayRegion, from, to),
+    holidays: holidaysBetween(settings.holidayRegion, from, to, settings.phoneHolidays),
   };
 
   const itemsOn = (day: number): DayItems => {
@@ -209,7 +222,7 @@ export default function CalendarScreen() {
             day={selectedDay}
             onSelectDay={(day) => tapDay(day, goTo)}
             marks={marks}
-            items={itemsOn(selectedDay)}
+            itemsOn={itemsOn}
             loaded={data !== undefined}
             wide={wide}
             holiday={marks.holidays.get(selectedDay)}
@@ -297,16 +310,16 @@ type MonthViewProps = {
   day: number;
   onSelectDay: (day: number) => void;
   marks: DayMarks;
-  items: DayItems;
+  itemsOn: (day: number) => DayItems;
   loaded: boolean;
   wide: boolean;
   holiday?: string;
 };
 
 /** Month grid with the selected day's agenda below it, or beside it on wide screens. */
-function MonthView({ day, onSelectDay, marks, items, loaded, wide, holiday }: MonthViewProps) {
-  const grid = <MonthGrid month={day} selectedDay={day} onSelectDay={onSelectDay} marks={marks} />;
-  const agenda = <DayAgenda day={day} items={items} loaded={loaded} holiday={holiday} />;
+function MonthView({ day, onSelectDay, marks, itemsOn, loaded, wide, holiday }: MonthViewProps) {
+  const grid = <MonthGrid month={day} selectedDay={day} onSelectDay={onSelectDay} marks={marks} itemsOn={itemsOn} />;
+  const agenda = <DayAgenda day={day} items={itemsOn(day)} loaded={loaded} holiday={holiday} />;
 
   if (wide) {
     return (

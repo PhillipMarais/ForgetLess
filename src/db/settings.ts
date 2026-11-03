@@ -21,6 +21,10 @@ export const DEFAULT_SETTINGS = {
   calendarView: 'month' as CalendarView,
   /** Whose public holidays the calendar shows: 'auto' (the phone's region), 'none' or a country code. */
   holidayRegion: 'auto' as HolidayRegion,
+  /** Also show holidays from the phone's Google holiday calendar (needs calendar access). */
+  phoneHolidays: true,
+  /** Calendar access has been asked for once, so the calendar doesn't ask again. */
+  calendarAccessAsked: false,
   /** Which view the calendar opens on. */
   calendarStartView: 'recent' as CalendarStartView,
   /** New tasks start with a date (today)… */
