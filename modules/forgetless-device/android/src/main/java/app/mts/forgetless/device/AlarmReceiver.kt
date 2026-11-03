@@ -34,6 +34,16 @@ class AlarmReceiver : BroadcastReceiver() {
 /** Alarms are forgotten by the system on reboot and app updates; schedule them again. */
 class BootReceiver : BroadcastReceiver() {
   override fun onReceive(context: Context, intent: Intent) {
+    // Exported for the system's broadcasts; anything else sent to it is ignored.
+    if (intent.action !in RESTORE_ACTIONS) return
     Alarms.restore(context)
+  }
+
+  private companion object {
+    val RESTORE_ACTIONS = setOf(
+      Intent.ACTION_BOOT_COMPLETED,
+      Intent.ACTION_MY_PACKAGE_REPLACED,
+      "android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED",
+    )
   }
 }

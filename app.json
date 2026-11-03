@@ -13,6 +13,12 @@
     },
     "android": {
       "package": "app.mts.forgetless",
+      "versionCode": 1,
+      "blockedPermissions": [
+        "android.permission.INTERNET",
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
+      ],
       "adaptiveIcon": {
         "backgroundColor": "#0D0D0E",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -45,6 +51,7 @@
       ],
       "expo-sqlite",
       "./plugins/with-android-cmake-dir",
+      "./plugins/with-release-signing",
       "@react-native-community/datetimepicker",
       [
         "expo-image-picker",
