@@ -52,8 +52,9 @@ their important items, or wait for an export/import feature.
 
 ## 3. App content answers
 
-**Privacy policy URL.** Required, because the app asks for the microphone and calendar. Host
-`docs/privacy-policy.md` at a public URL first, and fill in its contact email.
+**Privacy policy URL.** Required, because the app asks for the microphone and calendar. Use
+https://phillipmarais.github.io/forgetless/privacy-policy.html (the site's copy of
+`docs/privacy-policy.md`; keep the two the same).
 
 **Ads.** No.
 
@@ -117,7 +118,7 @@ speaking a note). Record these on the phone with the screen recorder.
     data rather than real personal notes.
   - Tablet screenshots are optional, but they help, because the app supports tablets.
 - **Category:** Productivity.
-- **Contact email:** required, and shown publicly.
+- **Contact email:** phillip-marais@outlook.com (shown publicly).
 
 ## 5. Before pressing "Publish"
 

@@ -57,4 +57,4 @@ If this policy changes, the new version will be posted here with a new date.
 
 ## Contact
 
-Questions about this policy: TODO: contact email.
+Questions about this policy: phillip-marais@outlook.com
