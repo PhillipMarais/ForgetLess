@@ -4,7 +4,8 @@ import type { WidgetRepresentation } from 'react-native-android-widget';
 import { DATABASE_NAME } from '@/db/database-provider';
 import { listOccurrences } from '@/db/events';
 import { migrate } from '@/db/migrations';
-import { listNotes, type Note } from '@/db/notes';
+import { listCategories } from '@/db/categories';
+import { listMainNotes } from '@/db/notes';
 import { loadSettings, type Settings } from '@/db/settings';
 import { listTaskEntriesBetween, listTasks, listTodayTasks, type Task } from '@/db/tasks';
 import { addDays, addMonths, monthGridDays, startOfDay, startOfMonth } from '@/lib/dates';
@@ -19,6 +20,7 @@ import {
   VoiceNoteWidget,
   type CalendarData,
   type CalendarItem,
+  type NotesData,
   type TodayData,
 } from './widgets';
 
@@ -73,7 +75,7 @@ export async function renderWidgetByName(
 type WidgetData =
   | { name: 'Today'; data: TodayData }
   | { name: 'Tasks'; tasks: Task[] }
-  | { name: 'Notes'; notes: Note[] }
+  | { name: 'Notes'; data: NotesData }
   | { name: 'Calendar'; data: CalendarData }
   | { name: 'VoiceNote' };
 
@@ -84,7 +86,7 @@ function drawWidget(widget: WidgetData, colors: WidgetColors, size: Size) {
     case 'Tasks':
       return <TasksWidget colors={colors} tasks={widget.tasks} />;
     case 'Notes':
-      return <NotesWidget colors={colors} notes={widget.notes} />;
+      return <NotesWidget colors={colors} data={widget.data} />;
     case 'Calendar':
       return <CalendarWidget colors={colors} data={widget.data} width={size.width} height={size.height} />;
     default:
@@ -111,7 +113,12 @@ async function loadWidgetData(
     return { name, data };
   }
   if (name === 'Tasks') return { name, tasks: await listTasks(db) };
-  if (name === 'Notes') return { name, notes: await listNotes(db) };
+  if (name === 'Notes') {
+    // Like the Notes tab: pinned notes, the categories, then the notes in no category.
+    const { pinned, voice, loose } = await listMainNotes(db);
+    const notes = [...voice, ...loose].sort((a, b) => b.updatedAt - a.updatedAt);
+    return { name, data: { pinned, categories: await listCategories(db), notes } };
+  }
   if (name === 'Calendar') return { name, data: await loadCalendarData(db, settings, monthOffset) };
   return { name: 'VoiceNote' };
 }

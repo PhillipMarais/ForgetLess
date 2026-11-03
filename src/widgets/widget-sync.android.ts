@@ -14,6 +14,7 @@ const WATCHED: readonly Table[] = [
   'events',
   'tasks',
   'notes',
+  'note_categories',
   'occurrence_exceptions',
   'task_steps',
 ];

@@ -10,6 +10,7 @@ import {
   type HexColor,
 } from 'react-native-android-widget';
 
+import type { Category } from '@/db/categories';
 import type { EventOccurrence } from '@/db/events';
 import type { Note } from '@/db/notes';
 import type { Task } from '@/db/tasks';
@@ -32,6 +33,7 @@ export const AppLinks = {
   voiceNote: 'forgetless-quick://voice',
   task: (id: string) => `forgetless:///task/${id}`,
   note: (id: string) => `forgetless:///note/${id}`,
+  category: (id: string) => `forgetless:///category/${id}`,
   event: (occurrence: EventOccurrence) =>
     `forgetless:///event/${occurrence.eventId}?occurrence=${occurrence.originalStart}`,
 };
@@ -288,7 +290,26 @@ export function TasksWidget({ colors, tasks }: { colors: WidgetColors; tasks: Ta
 
 // --- Notes ---------------------------------------------------------------------------------
 
-export function NotesWidget({ colors, notes }: { colors: WidgetColors; notes: Note[] }) {
+export type NotesData = {
+  pinned: Note[];
+  categories: Category[];
+  /** Unpinned notes in no category, newest first. */
+  notes: Note[];
+};
+
+/** At most this many rows; the app has the rest. */
+const NOTES_ROWS = 30;
+
+/** Like the Notes tab: pinned notes, the categories (tap one to open it), then the other notes. */
+export function NotesWidget({ colors, data }: { colors: WidgetColors; data: NotesData }) {
+  const rows = [
+    ...data.pinned.map((note) => ({ key: note.id, row: <NoteCard colors={colors} note={note} pinned /> })),
+    ...data.categories.map((category) => ({
+      key: category.id,
+      row: <CategoryRow colors={colors} category={category} />,
+    })),
+    ...data.notes.map((note) => ({ key: note.id, row: <NoteCard colors={colors} note={note} /> })),
+  ].slice(0, NOTES_ROWS);
   return (
     <Frame colors={colors} link={AppLinks.notes}>
       <Header
@@ -299,43 +320,83 @@ export function NotesWidget({ colors, notes }: { colors: WidgetColors; notes: No
           { icon: WidgetIcons.add(colors.onAccent), link: AppLinks.newNote, label: 'New note', filled: true },
         ]}
       />
-      {notes.length === 0 ? (
+      {rows.length === 0 ? (
         <Empty colors={colors} text="No notes yet" />
       ) : (
         <ListWidget style={{ height: 'match_parent', width: 'match_parent' }}>
-          {notes.slice(0, 30).map((note) => (
+          {rows.map(({ key, row }) => (
             // A list's rows ignore their own margins, so the gap is padding around the card.
-            <FlexWidget key={note.id} style={{ width: 'match_parent', paddingBottom: 10 }}>
-              <FlexWidget
-                {...open(AppLinks.note(note.id))}
-                style={{
-                  width: 'match_parent',
-                  flexDirection: 'column',
-                  backgroundColor: colors.surface,
-                  borderRadius: 14,
-                  paddingHorizontal: 14,
-                  paddingVertical: 12,
-                }}>
-                <TextWidget
-                  text={note.title.trim() || 'Untitled'}
-                  maxLines={1}
-                  truncate="END"
-                  style={{ fontSize: 15, fontFamily: WidgetFonts.bodyBold, color: colors.text }}
-                />
-                {note.body.trim() ? (
-                  <TextWidget
-                    text={note.body.trim().split('\n')[0]}
-                    maxLines={1}
-                    truncate="END"
-                    style={{ fontSize: 13, fontFamily: WidgetFonts.body, color: colors.textSecondary, marginTop: 4 }}
-                  />
-                ) : null}
-              </FlexWidget>
+            <FlexWidget key={key} style={{ width: 'match_parent', paddingBottom: 10 }}>
+              {row}
             </FlexWidget>
           ))}
         </ListWidget>
       )}
     </Frame>
+  );
+}
+
+function NoteCard({ colors, note, pinned }: { colors: WidgetColors; note: Note; pinned?: boolean }) {
+  return (
+    <FlexWidget
+      {...open(AppLinks.note(note.id))}
+      style={{
+        width: 'match_parent',
+        flexDirection: 'column',
+        backgroundColor: colors.surface,
+        borderRadius: 14,
+        paddingHorizontal: 14,
+        paddingVertical: 12,
+      }}>
+      <TextWidget
+        text={`${pinned ? '📌 ' : ''}${note.title.trim() || 'Untitled'}`}
+        maxLines={1}
+        truncate="END"
+        style={{ fontSize: 15, fontFamily: WidgetFonts.bodyBold, color: colors.text }}
+      />
+      {note.body.trim() ? (
+        <TextWidget
+          text={note.body.trim().split('\n')[0]}
+          maxLines={1}
+          truncate="END"
+          style={{ fontSize: 13, fontFamily: WidgetFonts.body, color: colors.textSecondary, marginTop: 4 }}
+        />
+      ) : null}
+    </FlexWidget>
+  );
+}
+
+/** A category: folder, name and how many notes; opens the category in the app. */
+function CategoryRow({ colors, category }: { colors: WidgetColors; category: Category }) {
+  return (
+    <FlexWidget
+      {...open(AppLinks.category(category.id))}
+      accessibilityLabel={`${category.name} category, ${category.noteCount} notes`}
+      style={{
+        width: 'match_parent',
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: colors.surface,
+        borderRadius: 14,
+        paddingHorizontal: 14,
+        paddingVertical: 12,
+      }}>
+      <SvgWidget svg={WidgetIcons.folder(colors.text)} style={{ width: 22, height: 22, marginRight: 10 }} />
+      <FlexWidget style={{ flex: 1 }}>
+        <TextWidget
+          text={category.name}
+          maxLines={1}
+          truncate="END"
+          style={{ fontSize: 15, fontFamily: WidgetFonts.bodyBold, color: colors.text }}
+        />
+      </FlexWidget>
+      <TextWidget
+        text={`${category.noteCount} ${category.noteCount === 1 ? 'note' : 'notes'}`}
+        maxLines={1}
+        style={{ fontSize: 13, fontFamily: WidgetFonts.body, color: colors.textSecondary, marginLeft: 8 }}
+      />
+      <SvgWidget svg={WidgetIcons.next(colors.textSecondary)} style={{ width: 18, height: 18, marginLeft: 4 }} />
+    </FlexWidget>
   );
 }
 
