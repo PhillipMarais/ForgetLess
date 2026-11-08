@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import type { DayMarks } from '@/components/day-dots';
+import { ChoiceDialog } from '@/components/choice-dialog';
 import { DayTimeline } from '@/components/day-timeline';
 import { EventRow } from '@/components/event-row';
 import { HolidayBanner } from '@/components/holiday-banner';
@@ -104,17 +105,22 @@ export default function CalendarScreen() {
     if (linkedDay) router.setParams({ day: undefined });
   }, [linkedDay]);
 
-  // Once, ask to read the phone's holiday calendar (it has election days and the like).
+  // Once, explain and then ask to read the phone's holiday calendar (it has election days and
+  // the like). Saying "Not now" also counts as asked; Settings can turn it on later.
   const [, setAccessChecked] = useState(false);
+  const [explainAccess, setExplainAccess] = useState(false);
   useEffect(() => {
     if (!settings.phoneHolidays || settings.calendarAccessAsked || settings.holidayRegion === 'none') return;
-    hasCalendarAccess().then(async (access) => {
-      if (access) return;
-      setSetting('calendarAccessAsked', true);
-      // Granted: draw again so the new holidays show.
-      if (await askCalendarAccess()) setAccessChecked(true);
+    hasCalendarAccess().then((access) => {
+      if (!access) setExplainAccess(true);
     });
-  }, [settings.phoneHolidays, settings.calendarAccessAsked, settings.holidayRegion, setSetting]);
+  }, [settings.phoneHolidays, settings.calendarAccessAsked, settings.holidayRegion]);
+  const answerAccess = async (allow: boolean) => {
+    setExplainAccess(false);
+    setSetting('calendarAccessAsked', true);
+    // Granted: draw again so the new holidays show.
+    if (allow && (await askCalendarAccess())) setAccessChecked(true);
+  };
 
   const changeView = (next: CalendarView) => {
     setView(next);
@@ -252,6 +258,15 @@ export default function CalendarScreen() {
           />
         ) : null}
       </SwipePager>
+      <ChoiceDialog
+        visible={explainAccess}
+        title="Show election days and other holidays?"
+        message="ForgetLess can read your phone's holiday calendar for days like elections. It only reads holiday calendars, never your own events, and nothing leaves your phone."
+        choices={[{ label: 'Continue', value: true }]}
+        onChoose={() => answerAccess(true)}
+        onCancel={() => answerAccess(false)}
+        cancelLabel="Not now"
+      />
     </Screen>
   );
 }

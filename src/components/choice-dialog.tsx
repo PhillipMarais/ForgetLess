@@ -9,16 +9,28 @@ export type Choice<T> = { label: string; value: T; destructive?: boolean; disabl
 type ChoiceDialogProps<T> = {
   visible: boolean;
   title: string;
+  /** Optional text under the title, for a choice that needs explaining. */
+  message?: string;
   choices: readonly Choice<T>[];
   onChoose: (value: T) => void;
   onCancel: () => void;
+  /** Label of the button that closes the dialog; "Cancel" when not given. */
+  cancelLabel?: string;
 };
 
 /**
  * A small modal with a list of choices and Cancel. Used instead of Alert.alert,
  * which does nothing on web.
  */
-export function ChoiceDialog<T>({ visible, title, choices, onChoose, onCancel }: ChoiceDialogProps<T>) {
+export function ChoiceDialog<T>({
+  visible,
+  title,
+  message,
+  choices,
+  onChoose,
+  onCancel,
+  cancelLabel = 'Cancel',
+}: ChoiceDialogProps<T>) {
   const theme = useTheme();
 
   return (
@@ -28,9 +40,14 @@ export function ChoiceDialog<T>({ visible, title, choices, onChoose, onCancel }:
           style={[styles.dialog, { backgroundColor: theme.backgroundElement }]}
           accessibilityRole="alert"
           onPress={() => {}}>
-          <ThemedText type="smallBold" style={styles.title}>
+          <ThemedText type="smallBold" style={[styles.title, message ? styles.titleAboveMessage : null]}>
             {title}
           </ThemedText>
+          {message ? (
+            <ThemedText type="small" themeColor="textSecondary" style={styles.message}>
+              {message}
+            </ThemedText>
+          ) : null}
           <View style={[styles.choices, { borderTopColor: theme.border }]}>
             {choices.map((choice) => (
               <ChoiceButton
@@ -41,7 +58,7 @@ export function ChoiceDialog<T>({ visible, title, choices, onChoose, onCancel }:
                 onPress={() => onChoose(choice.value)}
               />
             ))}
-            <ChoiceButton label="Cancel" color="textSecondary" onPress={onCancel} />
+            <ChoiceButton label={cancelLabel} color="textSecondary" onPress={onCancel} />
           </View>
         </Pressable>
       </Pressable>
@@ -65,6 +82,14 @@ const styles = StyleSheet.create({
   },
   title: {
     padding: Spacing.three,
+    textAlign: 'center',
+  },
+  titleAboveMessage: {
+    paddingBottom: Spacing.one,
+  },
+  message: {
+    paddingHorizontal: Spacing.three,
+    paddingBottom: Spacing.three,
     textAlign: 'center',
   },
   choices: {
