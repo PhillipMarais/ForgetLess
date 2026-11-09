@@ -110,13 +110,28 @@ speaking a note). Record these on the phone with the screen recorder.
   > Private by design: everything stays on your phone. There's no account and no ads, and the
   > app has no internet access.
 
-- **Graphics Play requires:**
-  - App icon, 512×512 PNG. Generate it from the logo with `scripts/generate-brand-assets.mjs`,
-    or export it from `assets/images/icon.png`.
-  - Feature graphic, 1024×500.
-  - At least 2 phone screenshots. Take them with `adb exec-out screencap -p`, using made-up
-    data rather than real personal notes.
-  - Tablet screenshots are optional, but they help, because the app supports tablets.
+- **Graphics** are in `store/`:
+  - `play-icon-512.png` (app icon) and `feature-graphic.png` (1024×500). Both are drawn by
+    `node scripts/generate-brand-assets.mjs` from `assets/brand/app-icon.svg`.
+  - `phone/` (1080×1920) and `tablet/` (2560×1600, used for both 7-inch and 10-inch tablets).
+    Play rejects screenshots whose long side is more than twice the short side, so phone
+    screenshots can't come from a 20:9 phone such as the S25 FE.
+- **Retaking the screenshots** (on emulators, so no real notes appear):
+  1. The emulators are `fl_phone` (Pixel, 1080×1920) and `fl_tablet` (Pixel Tablet), using
+     the Android 15 `google_apis` image. Start one with
+     `emulator -avd fl_phone -no-window -no-snapshot`.
+  2. Run `adb root`. Set the time zone to Africa/Johannesburg, turn off automatic time, and
+     set the clock to 08:30 with `adb shell date MMDDhhmmYYYY.ss`. Install the sideload APK
+     and open it once.
+  3. Build the made-up data:
+     `STORE_DB=<file> npx jest --testRegex 'store-data\.seed\.ts$' scripts/store-data.seed.ts`.
+     Copy the file over `/data/data/app.mts.forgetless/files/SQLite/forgetless.db`, deleting
+     the `-wal` and `-shm` files. Then `chown` it to the app's user and run `restorecon`.
+  4. For a tidy status bar, use the System UI demo mode
+     (`am broadcast -a com.android.systemui.demo`). Take each screenshot with
+     `adb exec-out screencap -p`.
+  5. To show the alarm screen: lock the screen, then set the clock to 15 seconds before
+     "Pick up dry cleaning" (17:00).
 - **Category:** Productivity.
 - **Contact email:** phillip-marais@outlook.com (shown publicly).
 

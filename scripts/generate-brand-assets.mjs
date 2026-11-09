@@ -1,5 +1,5 @@
-// Draws the app icon, Android adaptive icon layers, splash image and favicon from
-// assets/brand/app-icon.svg, using headless Chrome. Run: node scripts/generate-brand-assets.mjs
+// Draws the app icon, Android adaptive icon layers, splash image, favicon and the Play store
+// icon and feature graphic (store/) from assets/brand/app-icon.svg, using headless Chrome. Run: node scripts/generate-brand-assets.mjs
 // (set CHROME_PATH if Chrome isn't in the default Windows location).
 import { spawn } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -36,7 +36,25 @@ const ASSETS = [
   },
   { file: 'assets/images/splash-icon.png', size: 1024, html: (s) => mark({ size: s, scale: 0.9 }) },
   { file: 'assets/images/favicon.png', size: 96, html: (s) => darkBackground(s) + mark({ size: s, scale: 0.9 }) },
+  // Play listing icon: a full square; Play rounds the corners itself, so keep a margin.
+  { file: 'store/play-icon-512.png', size: 512, html: (s) => darkBackground(s) + mark({ size: s, scale: 0.78 }) },
+  // Play feature graphic. Play may crop its edges, so everything sits well inside them.
+  { file: 'store/feature-graphic.png', width: 1024, height: 500, html: featureGraphic },
 ];
+
+function featureGraphic() {
+  const icon = iconSvg.replace('<svg ', '<svg width="300" height="300" ');
+  return `<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@700&family=IBM+Plex+Sans:wght@400&display=block">
+    <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:44px;
+      background:radial-gradient(circle at 30% 45%, #1C2530 0%, ${INK} 65%)">
+      ${icon}
+      <div style="color:#F2EFEA">
+        <div style="font:700 92px/1 'Chakra Petch',sans-serif;letter-spacing:-1px">Forget<span style="color:#FF7A12">Less</span></div>
+        <div style="margin-top:22px;font:400 31px/1.35 'IBM Plex Sans',sans-serif;color:#C9C4BC">
+          Calendar, tasks, notes and<br>real alarms. All on your phone.</div>
+      </div>
+    </div>`;
+}
 
 const chrome = process.env.CHROME_PATH ?? 'C:/Program Files/Google/Chrome/Application/chrome.exe';
 const profile = mkdtempSync(join(tmpdir(), 'brand-chrome-'));
@@ -70,11 +88,14 @@ const send = (method, params = {}) =>
 await send('Page.enable');
 await send('Emulation.setDefaultBackgroundColorOverride', { color: { r: 0, g: 0, b: 0, a: 0 } });
 for (const asset of ASSETS) {
-  await send('Emulation.setDeviceMetricsOverride', { width: asset.size, height: asset.size, deviceScaleFactor: 1, mobile: false });
+  const width = asset.width ?? asset.size;
+  const height = asset.height ?? asset.size;
+  await send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: false });
   const html = `<!doctype html><html><body style="margin:0;background:transparent">
-    <div style="position:relative;width:${asset.size}px;height:${asset.size}px;overflow:hidden">${asset.html(asset.size)}</div></body></html>`;
+    <div style="position:relative;width:${width}px;height:${height}px;overflow:hidden">${asset.html(asset.size)}</div></body></html>`;
   await send('Page.navigate', { url: `data:text/html;base64,${Buffer.from(html).toString('base64')}` });
-  await sleep(400);
+  // Web fonts (feature graphic) need a moment to load.
+  await sleep(1500);
   const { result } = await send('Page.captureScreenshot', { format: 'png' });
   writeFileSync(join(root, asset.file), Buffer.from(result.data, 'base64'));
   console.log('wrote', asset.file);
